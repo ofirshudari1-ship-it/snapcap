@@ -1,0 +1,26 @@
+# Build / packaging output
+build/
+dist/
+*.spec.bak
+
+# PyInstaller work dirs
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Installer artifacts (released as GitHub release assets, not committed)
+*.exe
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local logs / crash dumps
+*.log

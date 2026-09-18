@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SnapCap — Screenshot capture, editing &amp; local OCR for Windows</title>
+<meta name="description" content="SnapCap: a Windows tray tool for region/window/scrolling capture, quick editing, local OCR with automatic PII redaction, and optional opt-in cloud-AI features. Local-first by default.">
+<meta name="theme-color" content="#00d9a3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1a2e" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+  /* ============ Tokens (from assets/BRAND.md — teal #00d9a3 / blue #3b82f6) ============ */
+  :root {
+    --bg: #f4f5f9;
+    --surface: #ffffff;
+    --surface-alt: #e9ecf6;
+    --border: #dbe0ee;
+    --border-soft: #e6e9f4;
+    --ink: #1c1c2b;
+    --ink-soft: #4b4b66;
+    --ink-faint: #7c7c96;
+    --accent-1: #00d9a3;
+    --accent-2: #3b82f6;
+    --accent-text: #0d8f6e;
+    --accent-wash: rgba(0, 217, 163, 0.12);
+    --accent-wash-strong: rgba(0, 217, 163, 0.2);
+    --on-accent: #1a1a2e;
+    --success: #1dd1a1;
+    --warning-bg: #fff7e0;
+    --warning-fg: #a86a00;
+    --warning-border: #f3dfa8;
+    --error: #e04545;
+    --info: #0e9fc4;
+    --shadow-sm: 0 1px 2px rgba(26, 26, 46, 0.06);
+    --shadow-md: 0 10px 28px -10px rgba(26, 26, 46, 0.18);
+    --shadow-lg: 0 24px 60px -20px rgba(26, 26, 46, 0.28);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 9px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface-alt: #1f2c4d;
+      --border: #2c3a63;
+      --border-soft: #253253;
+      --ink: #eaeaea;
+      --ink-soft: #b7bcd6;
+      --ink-faint: #7d84ab;
+      --accent-text: #37e6b4;
+      --accent-wash: rgba(0, 217, 163, 0.14);
+      --accent-wash-strong: rgba(0, 217, 163, 0.24);
+      --warning-bg: #2c2408;
+      --warning-fg: #feca57;
+      --warning-border: #4a3c15;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 10px 28px -10px rgba(0, 0, 0, 0.55);
+      --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-alt: #1f2c4d;
+    --border: #2c3a63;
+    --border-soft: #253253;
+    --ink: #eaeaea;
+    --ink-soft: #b7bcd6;
+    --ink-faint: #7d84ab;
+    --accent-text: #37e6b4;
+    --accent-wash: rgba(0, 217, 163, 0.14);
+    --accent-wash-strong: rgba(0, 217, 163, 0.24);
+    --warning-bg: #2c2408;
+    --warning-fg: #feca57;
+    --warning-border: #4a3c15;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 10px 28px -10px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  }
+
+  /* ============ Base ============ */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Rubik", "Segoe UI", -apple-system, system-ui, Arial, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "JetBrains Mono", ui-monospace, "Courier New", monospace; direction: ltr; unicode-bidi: isolate; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 700; }
+  p { margin: 0; }
+  a { color: inherit; }
+  button { font-family: inherit; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 24px; }
+  section { padding-block: 84px; }
+  .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-text); font-weight: 600; }
+  .section-head { max-width: 660px; margin-bottom: 44px; }
+  .section-head h2 { font-size: clamp(26px, 3.4vw, 34px); margin-top: 10px; }
+  .section-head p { color: var(--ink-soft); font-size: 16px; margin-top: 12px; }
+
+  /* ============ i18n ============ */
+  html[data-lang="en"] .lang-he { display: none; }
+  html[data-lang="he"] .lang-en { display: none; }
+  .lang-toggle {
+    font-family: "JetBrains Mono", monospace; font-size: 12.5px; letter-spacing: 0.02em;
+    background: none; border: 1px solid var(--border); color: var(--ink-soft);
+    padding: 5px 11px; border-radius: 999px; cursor: pointer; margin-inline-start: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .lang-toggle:hover, .lang-toggle:focus-visible { border-color: var(--accent-text); color: var(--accent-text); }
+
+  /* ============ Header ============ */
+  header.site { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-soft); }
+  .site-nav { max-width: 1080px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-sm); color: #fff; font-weight: 700; font-size: 16px;
+    font-family: "Segoe UI", sans-serif;
+  }
+  .brand-word { font-family: "Rubik", sans-serif; font-weight: 800; font-size: 19px; letter-spacing: 0.01em; }
+  .ver-badge { font-family: "JetBrains Mono", monospace; font-size: 11.5px; direction: ltr; background: var(--accent-wash); color: var(--accent-text); border: 1px solid var(--accent-wash-strong); padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  nav.links { display: flex; gap: 22px; font-size: 14px; color: var(--ink-soft); }
+  nav.links a { text-decoration: none; transition: color 0.15s ease; }
+  nav.links a:hover, nav.links a:focus-visible { color: var(--accent-text); }
+  @media (max-width: 760px) { nav.links { display: none; } }
+
+  /* ============ Hero ============ */
+  .hero { padding-block: 60px 92px; }
+  .hero-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 56px; align-items: center; }
+  @media (max-width: 880px) { .hero-grid { grid-template-columns: 1fr; gap: 44px; } }
+  .hero h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.12; letter-spacing: -0.01em; margin-top: 14px; }
+  .hero h1 em { font-style: normal; color: var(--accent-text); }
+  .hero .lede { font-size: 17.5px; color: var(--ink-soft); margin-top: 20px; max-width: 54ch; }
+  .cta-row { display: flex; gap: 12px; margin-top: 36px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: var(--radius-sm);
+    font-size: 14.5px; font-weight: 700; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .btn.primary { background: linear-gradient(120deg, var(--accent-1), var(--accent-2)); color: var(--on-accent); box-shadow: 0 10px 24px -8px rgba(0, 217, 163, 0.45); }
+  .btn.primary:hover { transform: translateY(-1px); }
+  .btn.ghost { border-color: var(--border); color: var(--ink); background: var(--surface); }
+  .btn.ghost:hover { border-color: var(--accent-text); color: var(--accent-text); }
+  .hero-meta { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+  .mini-badge { font-size: 11.5px; padding: 4px 10px; border-radius: 999px; background: var(--surface-alt); color: var(--ink-soft); border: 1px solid var(--border-soft); display: inline-flex; align-items: center; gap: 5px; }
+
+  /* ---- Hero mockup: tray-icon + editor toolbar recreation ---- */
+  .mock-wrap { display: flex; justify-content: center; }
+  .mock-window { width: 100%; max-width: 380px; border-radius: 16px; overflow: hidden; background: #16213e; box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,0.06); font-family: "Rubik", sans-serif; }
+  .mock-titlebar { background: linear-gradient(120deg, var(--accent-1), var(--accent-2)); color: var(--on-accent); padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; }
+  .mock-titlebar .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(26,26,46,0.35); }
+  .mock-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .mock-canvas { background: #0f1830; border: 1px dashed #2c3a63; border-radius: 10px; height: 150px; display: flex; align-items: center; justify-content: center; color: #5f6c94; font-size: 12px; position: relative; overflow: hidden; }
+  .mock-canvas .tag { position: absolute; top: 8px; left: 8px; background: rgba(0,217,163,0.18); border: 1px solid rgba(0,217,163,0.45); color: #6ff0c9; font-size: 10px; border-radius: 6px; padding: 2px 7px; font-family: "JetBrains Mono", monospace; }
+  .mock-canvas .blur { position: absolute; bottom: 22px; right: 26px; width: 84px; height: 16px; border-radius: 4px; backdrop-filter: blur(4px); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); }
+  .mock-toolbar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mock-chip { background: #1f2c4d; border: 1px solid #2c3a63; border-radius: 8px; padding: 6px 9px; font-size: 11px; color: #b7bcd6; display: flex; align-items: center; gap: 5px; }
+  .mock-chip.active { background: rgba(0,217,163,0.16); border-color: rgba(0,217,163,0.5); color: #6ff0c9; }
+  .mock-caption { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 14px; }
+
+  /* ============ Problem/Solution ============ */
+  .ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .ps-grid { grid-template-columns: 1fr; } }
+  .ps-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-sm); }
+  .ps-card h3 { font-size: 17px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .ps-card ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .ps-card li { font-size: 14.5px; color: var(--ink-soft); }
+  .ps-card.problem { border-top: 3px solid var(--error); }
+  .ps-card.solution { border-top: 3px solid var(--accent-1); }
+
+  /* ============ Feature grid ============ */
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 860px) { .feat-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .feat-grid { grid-template-columns: 1fr; } }
+  .feat { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .feat .fi { font-size: 22px; }
+  .feat h3 { font-size: 15px; }
+  .feat p { font-size: 13.5px; color: var(--ink-soft); }
+  .feat.new { border-color: var(--accent-wash-strong); background: linear-gradient(180deg, var(--accent-wash), transparent 60%); }
+  .new-tag { position: absolute; top: 14px; right: 14px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; background: var(--accent-1); color: var(--on-accent); border-radius: 999px; padding: 2px 8px; }
+  html[dir="rtl"] .new-tag { right: auto; left: 14px; }
+
+  /* ============ Screenshots placeholder ============ */
+  .shot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 760px) { .shot-grid { grid-template-columns: 1fr; } }
+  .shot-card { aspect-ratio: 16/10; border-radius: var(--radius-md); border: 1.5px dashed var(--border); background: var(--surface-alt); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-faint); }
+  .shot-card .icon { font-size: 26px; opacity: 0.6; }
+  .shot-card .label { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .shot-card .cap { font-size: 12.5px; color: var(--ink-faint); padding: 0 12px; text-align: center; }
+
+  /* ============ Privacy ============ */
+  .privacy-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 30px; box-shadow: var(--shadow-sm); }
+  .privacy-row { display: grid; grid-template-columns: 30px 1fr; gap: 14px; padding-block: 14px; border-bottom: 1px solid var(--border-soft); }
+  .privacy-row:last-child { border-bottom: none; }
+  .privacy-row .pi { font-size: 18px; text-align: center; }
+  .privacy-row h4 { font-size: 14.5px; margin-bottom: 4px; }
+  .privacy-row p { font-size: 13.5px; color: var(--ink-soft); }
+  .privacy-note { margin-top: 18px; background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-fg); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; }
+
+  /* ============ Download ============ */
+  .dl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow-md); display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; }
+  @media (max-width: 700px) { .dl-card { grid-template-columns: 1fr; text-align: center; } }
+  .dl-icon { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--on-accent); flex-shrink: 0; }
+  @media (max-width: 700px) { .dl-icon { margin: 0 auto; } }
+  .dl-info h3 { font-size: 18px; margin-bottom: 4px; }
+  .dl-info .path { font-family: "JetBrains Mono", monospace; font-size: 12.5px; direction: ltr; color: var(--ink-soft); }
+  .dl-info .facts { font-size: 12.5px; color: var(--ink-faint); margin-top: 6px; }
+  .install-steps { display: flex; flex-direction: column; gap: 10px; counter-reset: step; margin-top: 22px; }
+  .install-steps li { list-style: none; font-size: 13.5px; color: var(--ink-soft); display: flex; gap: 10px; align-items: flex-start; }
+  .install-steps li::before { counter-increment: step; content: counter(step); width: 20px; height: 20px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-text); font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .install-note { font-size: 12.5px; color: var(--ink-faint); margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
+
+  /* ============ FAQ ============ */
+  .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .faq-grid { grid-template-columns: 1fr; } }
+  .faq-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 22px; box-shadow: var(--shadow-sm); }
+  .faq-card h3 { font-size: 15px; margin-bottom: 8px; }
+  .faq-card p { font-size: 13.5px; color: var(--ink-soft); }
+
+  /* ============ Changelog mini ============ */
+  .cl-item { border-inline-start: 2px solid var(--border); padding-inline-start: 20px; padding-bottom: 26px; position: relative; }
+  .cl-item:last-child { padding-bottom: 0; }
+  .cl-item::before { content: ""; position: absolute; inset-inline-start: -7px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent-1); }
+  .cl-item.current::before { background: var(--accent-1); }
+  .cl-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .cl-ver { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 16px; direction: ltr; }
+  .cl-item.current .cl-ver { color: var(--accent-text); }
+  .cl-date { font-size: 12px; color: var(--ink-faint); direction: ltr; }
+  .cl-list { margin: 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .cl-list li { font-size: 13.5px; color: var(--ink-soft); }
+  .cl-list b { color: var(--ink); font-weight: 600; }
+
+  /* ============ Footer ============ */
+  footer { border-top: 1px solid var(--border-soft); padding-block: 36px; }
+  footer .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-faint); }
+  footer .paths { display: flex; gap: 14px; flex-wrap: wrap; }
+  footer code { font-family: "JetBrains Mono", monospace; direction: ltr; unicode-bidi: isolate; }
+</style>
+</head>
+<body>
+
+<!-- ============================== ENGLISH (default) ============================== -->
+<div class="lang-en">
+
+<header class="site">
+  <div class="site-nav">
+    <div class="brand">
+      <span class="brand-mark">S</span>
+      <span class="brand-word">SnapCap</span>
+      <span class="ver-badge">v1.4.0</span>
+    </div>
+    <nav class="links">
+      <a href="#why">Why SnapCap</a>
+      <a href="#features">Features</a>
+      <a href="#screens">In action</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#versions">Changelog</a>
+      <a href="#install">Download</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <button class="lang-toggle" onclick="setSiteLang('he')" aria-label="Switch to Hebrew">🌐 עברית</button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Windows tray tool · local-first screenshot capture</p>
+      <h1>Capture the screen.<br>Edit it in seconds.<br><em>Nothing leaves your PC</em> unless you say so.</h1>
+      <p class="lede">
+        SnapCap lives quietly in your system tray: region, full-screen, window,
+        or scrolling capture, a fast editor for highlights and blur, local OCR
+        with automatic redaction of anything sensitive, and optional AI
+        features you turn on yourself with your own API key. Everything works
+        offline by default — the cloud is opt-in, never automatic.
+      </p>
+      <div class="cta-row">
+        <a class="btn primary" href="#install">⬇ Download for Windows</a>
+        <a class="btn ghost" href="#features">See what it does ↓</a>
+      </div>
+      <p class="hero-meta">v1.4.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.4.0.exe</span> · ~110 MB</p>
+      <div class="badge-row">
+        <span class="mini-badge">🔒 Local OCR &amp; redaction</span>
+        <span class="mini-badge">🌗 Auto dark/light</span>
+        <span class="mini-badge">🌐 Hebrew + English</span>
+        <span class="mini-badge">☁️ Cloud AI is opt-in</span>
+      </div>
+    </div>
+
+    <div class="mock-wrap">
+      <div>
+        <div class="mock-window">
+          <div class="mock-titlebar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-inline-start:auto">SnapCap — Editor</span></div>
+          <div class="mock-body">
+            <div class="mock-canvas">
+              <span class="tag">📌 Pinned</span>
+              <span>captured region preview</span>
+              <span class="blur"></span>
+            </div>
+            <div class="mock-toolbar">
+              <span class="mock-chip active">🖊️ Highlight</span>
+              <span class="mock-chip">🌫️ Blur</span>
+              <span class="mock-chip">🔤 OCR</span>
+              <span class="mock-chip">🛡️ Redact PII</span>
+              <span class="mock-chip">📌 Pin to Screen</span>
+            </div>
+          </div>
+        </div>
+        <p class="mock-caption">Editor toolbar and floating "Pin to Screen" concept — illustrative, not a live screenshot</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Why SnapCap exists</p>
+      <h2>The built-in Snipping Tool stops right where the real work begins</h2>
+      <p>Taking the screenshot is the easy part. What happens after — cropping, marking up, hiding a name or a card number, pulling out the text, sharing it — is where most tools leave you on your own.</p>
+    </div>
+    <div class="ps-grid">
+      <div class="ps-card problem">
+        <h3>😩 What gets in the way</h3>
+        <ul>
+          <li>No easy way to blur an account number or email before sharing a screenshot</li>
+          <li>Copying text out of a screenshot means retyping it by hand</li>
+          <li>Long pages need several cropped screenshots stitched together manually</li>
+          <li>Comparing a capture against a live window means constantly alt-tabbing</li>
+          <li>"Quick" screenshot tools that need a cloud account just to save a file</li>
+        </ul>
+      </div>
+      <div class="ps-card solution">
+        <h3>✅ What SnapCap does instead</h3>
+        <ul>
+          <li>Automatic PII detection — emails, phone numbers, card numbers, API keys, IDs — with one-click redaction</li>
+          <li>Local OCR pulls text (and tables) straight out of any capture, or <span class="mono">Ctrl+Shift+T</span> for text-only, straight to the clipboard</li>
+          <li>Scrolling capture stitches a long page into one image automatically</li>
+          <li>Pin to Screen floats a capture always-on-top while you work in other windows</li>
+          <li>Runs entirely on your machine — save, edit, and organize without an account</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Capabilities</p>
+      <h2>What's inside</h2>
+      <p>Two brand-new additions in v1.4.0, plus everything SnapCap already covered.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat new">
+        <span class="new-tag">NEW · 1.4.0</span>
+        <span class="fi">📌</span>
+        <h3>Pin to Screen</h3>
+        <p>Float the current capture as a frameless, always-on-top window — drag to move, scroll to resize (0.2×–3×), right-click or double-click to close. Handy for comparing a mock against a live page.</p>
+      </div>
+      <div class="feat new">
+        <span class="new-tag">NEW · 1.4.0</span>
+        <span class="fi">⚡</span>
+        <h3>Quick Text Capture</h3>
+        <p><span class="mono">Ctrl+Shift+T</span> — select a region and its text is OCR'd locally and copied straight to the clipboard, no editor window, no cloud call. Built for "I just need this text, fast."</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🖼️</span>
+        <h3>Four capture modes</h3>
+        <p>Region, full screen, a specific window, or a long scrolling page — each with a global keyboard shortcut you can reassign.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🖊️</span>
+        <h3>Fast built-in editor</h3>
+        <p>Highlights, blur, arrows/shapes, text, watermark, and background removal — before the image ever leaves the editor window.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🔤</span>
+        <h3>Local OCR + table extraction</h3>
+        <p>Powered by Tesseract, running entirely on your device. Pulls plain text or recognizes tabular data from a captured screenshot.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🛡️</span>
+        <h3>Automatic PII redaction</h3>
+        <p>Detects emails, phone numbers, credit card numbers, API keys, IP addresses, and Israeli ID numbers, then blurs or boxes them out — all locally, before any sharing step.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🗂️</span>
+        <h3>Searchable local library</h3>
+        <p>Every capture is saved and indexed, including its OCR'd text, so you can search inside old screenshots later.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🤖</span>
+        <h3>Optional cloud AI (opt-in)</h3>
+        <p>Summarize, generate alt-text, translate, draft a bug report, or suggest a filename — off by default, only runs with your own Anthropic API key.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🌗</span>
+        <h3>Dark / Light / System</h3>
+        <p>Follows Windows' theme automatically, or set it manually — every panel and dialog respects the choice.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">In action</p>
+      <h2>Real screenshots are on the way</h2>
+      <p>This section is reserved for actual capture-to-editor screenshots of SnapCap running — not yet taken. Placeholders below show what each will demonstrate.</p>
+    </div>
+    <div class="shot-grid">
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">Asset · not captured yet</span>
+        <span class="cap">Region capture + editor with highlight/blur tools</span>
+      </div>
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">Asset · not captured yet</span>
+        <span class="cap">PII auto-redaction before/after on a real capture</span>
+      </div>
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">Asset · not captured yet</span>
+        <span class="cap">Pin to Screen floating over another app</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Privacy &amp; security</p>
+      <h2>Local by default. The cloud only sees what you choose to send it.</h2>
+      <p>This reflects the actual behavior of the code, not a generic privacy statement.</p>
+    </div>
+    <div class="privacy-card">
+      <div class="privacy-row">
+        <span class="pi">🖥️</span>
+        <div><h4>Capture, editing, and OCR run entirely on your device</h4><p>Screen capture, the image editor, and text extraction (Tesseract OCR) never contact a server. No account, no sign-in, no telemetry.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🛡️</span>
+        <div><h4>PII detection and redaction happen locally, before you share anything</h4><p>Emails, phone numbers, credit card numbers, API keys, IP addresses, and Israeli ID numbers are matched with local pattern rules and blurred/boxed — nothing is sent anywhere to detect them.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">☁️</span>
+        <div><h4>Cloud AI features are off by default (<span class="mono">ai_enabled = false</span>)</h4><p>Summarize, alt-text, translate, bug-report drafting, smart filename, and sensitive-content check only run when you explicitly enable them and supply your own Anthropic API key — SnapCap ships with no key of its own.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">📤</span>
+        <div><h4>When an AI feature runs, the captured image is sent to Anthropic's API</h4><p>That single image (not your library, not other captures) goes to Anthropic to fulfill that one request — this is the only case where anything leaves your device.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🔐</span>
+        <div><h4>Your API key and webhook URLs are encrypted at rest</h4><p>Stored in <span class="mono">~/.snapcap/config.json</span>, encrypted with Windows DPAPI and tied to your Windows user account — not saved as plain text.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">📁</span>
+        <div><h4>Everything else stays in your user profile</h4><p>Your capture library lives at <span class="mono">~/.snapcap/library/</span>, logs at <span class="mono">~/.snapcap/logs/</span> — never inside the install folder, never uploaded anywhere by SnapCap itself.</p></div>
+      </div>
+    </div>
+    <p class="privacy-note">⚠️ Sharing destinations you configure yourself (Imgur, S3, a custom webhook, Slack/Teams) also send data outside your device when you actively use them — that's a deliberate action you take, not something SnapCap does on its own.</p>
+  </div>
+</section>
+
+<section id="versions">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Changelog</p>
+      <h2>What changed, and why</h2>
+      <p>Full history in <span class="mono">CHANGELOG.md</span>. Here — the highlights.</p>
+    </div>
+    <div>
+      <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.4.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Product-improvement pass: Pin to Screen, Quick Text Capture, UI polish, real bug fixes</p>
+        <ul class="cl-list">
+          <li><b>Added</b> Pin to Screen — a floating, always-on-top window for the current capture.</li>
+          <li><b>Added</b> Quick Text Capture (<span class="mono">Ctrl+Shift+T</span>) — local OCR straight to the clipboard, no editor step.</li>
+          <li><b>Fixed</b> a crash where AI features failed with an unrelated error instead of a friendly message when the optional <span class="mono">anthropic</span> package wasn't installed.</li>
+          <li><b>Fixed</b> a leftover installer string still describing the tray icon by its old (pre-rebrand) color.</li>
+          <li>Corner-radius and spacing polish across the editor, tray menu, and installer — same brand colors, no palette changes.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.3.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">Packaging switched from a self-extracting single file to a plain folder build, reducing false-positive antivirus flags — no user-facing change.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.2.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">Rebrand: SnapAI Pro → <b>SnapCap</b>, new teal/blue identity (<span class="mono">#00d9a3</span> / <span class="mono">#3b82f6</span>), WCAG-AA contrast fixes across every accent button.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Download</p>
+      <h2>Get SnapCap for Windows</h2>
+      <p>One installer, both languages built in. Full guide + troubleshooting: <span class="mono">README.md</span>.</p>
+    </div>
+    <div class="dl-card">
+      <div class="dl-icon">⬇</div>
+      <div class="dl-info">
+        <h3>SnapCap v1.4.0 for Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.4.0.exe</div>
+        <div class="facts">≈110 MB · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
+      </div>
+      <a class="btn primary" href="../SnapCap-Setup-1.4.0.exe">Download installer</a>
+    </div>
+    <ol class="install-steps">
+      <li>Run <span class="mono">SnapCap-Setup-1.4.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
+      <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
+      <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
+      <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
+    </ol>
+    <p class="install-note">Windows may show a SmartScreen warning because the installer isn't code-signed yet — click "More info" → "Run anyway". This is expected for small independent tools and doesn't indicate anything was tampered with.</p>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">FAQ</p>
+      <h2>Before you install</h2>
+    </div>
+    <div class="faq-grid">
+      <div class="faq-card">
+        <h3>Is my data sent to the cloud?</h3>
+        <p>No, not by default. Capture, editing, OCR, and PII redaction all run locally. Data only leaves your device if you explicitly turn on an AI feature and supply your own Anthropic API key — see the Privacy &amp; Security section above.</p>
+      </div>
+      <div class="faq-card">
+        <h3>Do I need administrator rights?</h3>
+        <p>Not strictly — the installer defaults to <span class="mono">C:\Program Files\SnapCap</span> with admin rights, but falls back to a per-user folder under <span class="mono">%LOCALAPPDATA%</span> if you don't have them, instead of failing.</p>
+      </div>
+      <div class="faq-card">
+        <h3>Where is my data stored?</h3>
+        <p>Everything lives under your user profile: settings in <span class="mono">~/.snapcap/config.json</span> (sensitive fields DPAPI-encrypted), captures in <span class="mono">~/.snapcap/library/</span>, logs in <span class="mono">~/.snapcap/logs/</span>.</p>
+      </div>
+      <div class="faq-card">
+        <h3>What happens if I close the SnapCap window?</h3>
+        <p>The X minimizes SnapCap to the system tray — it keeps running so your keyboard shortcuts still work. To actually quit, right-click the tray icon and choose Exit.</p>
+      </div>
+      <div class="faq-card">
+        <h3>Does OCR work with Hebrew text?</h3>
+        <p>OCR runs on Tesseract locally; recognition quality depends on the language pack installed alongside SnapCap. The app interface itself is fully bilingual (English/Hebrew) with RTL support.</p>
+      </div>
+      <div class="faq-card">
+        <h3>What exactly gets redacted automatically?</h3>
+        <p>Email addresses, phone numbers, credit card numbers, API keys/tokens, IP addresses, and Israeli ID numbers — matched by local pattern rules, then blurred or boxed on the image before you export or share it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>SnapCap · local-first screenshot capture for Windows</span>
+    <span class="paths">
+      <span>Spec: <code>SPEC.md</code></span>
+      <span>Changelog: <code>CHANGELOG.md</code></span>
+      <span>Brand guide: <code>assets/BRAND.md</code></span>
+    </span>
+  </div>
+  <div class="wrap" style="margin-top:6px;font-size:11px;opacity:0.6">© 2026 SnapCap. All rights reserved.</div>
+</footer>
+
+</div>
+
+<!-- ============================== HEBREW ============================== -->
+<div class="lang-he" dir="rtl" lang="he">
+
+<header class="site">
+  <div class="site-nav">
+    <div class="brand">
+      <span class="brand-mark">S</span>
+      <span class="brand-word">SnapCap</span>
+      <span class="ver-badge">v1.4.0</span>
+    </div>
+    <nav class="links">
+      <a href="#why-he">למה SnapCap</a>
+      <a href="#features-he">יכולות</a>
+      <a href="#screens-he">בפעולה</a>
+      <a href="#privacy-he">פרטיות</a>
+      <a href="#versions-he">יומן שינויים</a>
+      <a href="#install-he">הורדה</a>
+      <a href="#faq-he">שאלות נפוצות</a>
+    </nav>
+    <button class="lang-toggle" onclick="setSiteLang('en')" aria-label="Switch to English">🌐 English</button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">כלי למגש המערכת של Windows · לכידת מסך מקומית-תחילה</p>
+      <h1>לוכדים את המסך.<br>עורכים תוך שניות.<br><em>שום דבר לא יוצא מהמחשב</em> אלא אם ביקשתם.</h1>
+      <p class="lede">
+        SnapCap יושב בשקט במגש המערכת: לכידת אזור, מסך מלא, חלון ספציפי או
+        גלילה ארוכה, עורך מהיר להדגשות וטשטוש, OCR מקומי עם הסתרה אוטומטית
+        של מידע רגיש, ופיצ'רי AI אופציונליים שמפעילים בעצמכם עם מפתח API
+        משלכם. הכול עובד אופליין כברירת מחדל — הענן הוא בחירה, לא ברירת מחדל.
+      </p>
+      <div class="cta-row">
+        <a class="btn primary" href="#install-he">⬇ הורדה ל-Windows</a>
+        <a class="btn ghost" href="#features-he">לראות מה זה עושה ↓</a>
+      </div>
+      <p class="hero-meta">v1.4.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.4.0.exe</span> · כ-110 MB</p>
+      <div class="badge-row">
+        <span class="mini-badge">🔒 OCR והסתרה מקומיים</span>
+        <span class="mini-badge">🌗 כהה/בהיר אוטומטי</span>
+        <span class="mini-badge">🌐 עברית + אנגלית</span>
+        <span class="mini-badge">☁️ AI בענן הוא אופציונלי</span>
+      </div>
+    </div>
+
+    <div class="mock-wrap">
+      <div>
+        <div class="mock-window">
+          <div class="mock-titlebar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-inline-start:auto">SnapCap — עורך</span></div>
+          <div class="mock-body">
+            <div class="mock-canvas">
+              <span class="tag">📌 הוצמד</span>
+              <span>תצוגת אזור שנלכד</span>
+              <span class="blur"></span>
+            </div>
+            <div class="mock-toolbar">
+              <span class="mock-chip active">🖊️ הדגשה</span>
+              <span class="mock-chip">🌫️ טשטוש</span>
+              <span class="mock-chip">🔤 OCR</span>
+              <span class="mock-chip">🛡️ הסתרת מידע רגיש</span>
+              <span class="mock-chip">📌 הצמדה למסך</span>
+            </div>
+          </div>
+        </div>
+        <p class="mock-caption">סרגל כלי העורך ורעיון "הצמדה למסך" הצף — להמחשה בלבד, לא צילום מסך אמיתי</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why-he">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">למה SnapCap קיים</p>
+      <h2>ה-Snipping Tool המובנה נעצר בדיוק במקום שבו העבודה האמיתית מתחילה</h2>
+      <p>לצלם את המסך זה החלק הקל. מה שקורה אחר כך — חיתוך, סימון, הסתרת שם או מספר כרטיס, חילוץ הטקסט, שיתוף — זה המקום שרוב הכלים משאירים אתכם לבד מולו.</p>
+    </div>
+    <div class="ps-grid">
+      <div class="ps-card problem">
+        <h3>😩 מה מפריע</h3>
+        <ul>
+          <li>אין דרך פשוטה לטשטש מספר חשבון או אימייל לפני ששולחים צילום מסך</li>
+          <li>העתקת טקסט מתוך צילום מסך אומרת להקליד אותו מחדש ביד</li>
+          <li>עמודים ארוכים דורשים כמה צילומים חתוכים ותפירה ידנית</li>
+          <li>השוואת צילום מול חלון חי אומרת Alt-Tab מתמיד</li>
+          <li>כלי צילום "מהירים" שדורשים חשבון בענן רק כדי לשמור קובץ</li>
+        </ul>
+      </div>
+      <div class="ps-card solution">
+        <h3>✅ מה SnapCap עושה במקום</h3>
+        <ul>
+          <li>זיהוי אוטומטי של מידע רגיש — אימיילים, טלפונים, מספרי כרטיס, מפתחות API — עם הסתרה בלחיצה אחת</li>
+          <li>OCR מקומי שמחלץ טקסט (וגם טבלאות) ישירות מכל צילום, או <span class="mono">Ctrl+Shift+T</span> לטקסט בלבד, ישר ללוח</li>
+          <li>לכידת גלילה תופרת עמוד ארוך לתמונה אחת אוטומטית</li>
+          <li>הצמדה למסך מציפה צילום תמיד-עליון בזמן עבודה בחלונות אחרים</li>
+          <li>פועל לגמרי על המחשב שלכם — שמירה, עריכה וארגון בלי חשבון</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">יכולות</p>
+      <h2>מה יש בפנים</h2>
+      <p>שתי תוספות חדשות לגמרי בגרסה 1.4.0, ועוד כל מה ש-SnapCap כבר כיסה.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat new">
+        <span class="new-tag">חדש · 1.4.0</span>
+        <span class="fi">📌</span>
+        <h3>הצמדה למסך</h3>
+        <p>הציפו את הצילום הנוכחי כחלון צף, תמיד-עליון, ללא מסגרת — גרירה להזזה, גלגלת להגדלה/הקטנה (0.2×–3×), קליק ימני או כפול לסגירה. שימושי להשוואת mock מול עמוד חי.</p>
+      </div>
+      <div class="feat new">
+        <span class="new-tag">חדש · 1.4.0</span>
+        <span class="fi">⚡</span>
+        <h3>לכידת טקסט מהירה</h3>
+        <p><span class="mono">Ctrl+Shift+T</span> — בוחרים אזור והטקסט שלו מזוהה (OCR) מקומית ומועתק ישר ללוח, בלי חלון עריכה, בלי קריאת ענן. מיועד ל"אני רק צריך את הטקסט, מהר".</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🖼️</span>
+        <h3>ארבעה מצבי לכידה</h3>
+        <p>אזור, מסך מלא, חלון ספציפי, או עמוד גלילה ארוך — לכל אחד קיצור מקלדת גלובלי שניתן להגדרה מחדש.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🖊️</span>
+        <h3>עורך מהיר מובנה</h3>
+        <p>הדגשות, טשטוש, חיצים/צורות, טקסט, סימן מים, והסרת רקע — עוד לפני שהתמונה יוצאת מחלון העריכה.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🔤</span>
+        <h3>OCR מקומי + חילוץ טבלאות</h3>
+        <p>מבוסס Tesseract, פועל כולו על המכשיר. מחלץ טקסט רגיל או מזהה נתונים בטבלה מתוך צילום מסך.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🛡️</span>
+        <h3>הסתרה אוטומטית של מידע רגיש</h3>
+        <p>מזהה אימיילים, מספרי טלפון, מספרי כרטיס אשראי, מפתחות API, כתובות IP ומספרי תעודת זהות ישראליים, ומטשטש/מכסה אותם — הכול מקומית, לפני כל שלב שיתוף.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🗂️</span>
+        <h3>ספרייה מקומית עם חיפוש</h3>
+        <p>כל צילום נשמר ומאונדקס, כולל הטקסט שזוהה ב-OCR, כך שאפשר לחפש בתוך צילומים ישנים אחר כך.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🤖</span>
+        <h3>AI בענן — אופציונלי</h3>
+        <p>סיכום, טקסט חלופי, תרגום, ניסוח דוח באג, או הצעת שם קובץ — כבוי כברירת מחדל, פועל רק עם מפתח Anthropic API שלכם.</p>
+      </div>
+      <div class="feat">
+        <span class="fi">🌗</span>
+        <h3>כהה / בהיר / מערכת</h3>
+        <p>עוקב אחרי ערכת הנושא של Windows אוטומטית, או שקובעים ידנית — כל פאנל ודיאלוג מכבד את הבחירה.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screens-he">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">בפעולה</p>
+      <h2>צילומי מסך אמיתיים בדרך</h2>
+      <p>הקטע הזה שמור לצילומי מסך אמיתיים של SnapCap בפעולה — עדיין לא צולמו. הפלייסהולדרים למטה מראים מה כל אחד ידגים.</p>
+    </div>
+    <div class="shot-grid">
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">נכס · לא צולם עדיין</span>
+        <span class="cap">לכידת אזור + עורך עם כלי הדגשה/טשטוש</span>
+      </div>
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">נכס · לא צולם עדיין</span>
+        <span class="cap">הסתרת מידע רגיש אוטומטית — לפני/אחרי על צילום אמיתי</span>
+      </div>
+      <div class="shot-card">
+        <span class="icon">🖼️</span>
+        <span class="label">נכס · לא צולם עדיין</span>
+        <span class="cap">הצמדה למסך צפה מעל אפליקציה אחרת</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">פרטיות ואבטחה</p>
+      <h2>מקומי כברירת מחדל. הענן רואה רק את מה שבחרתם לשלוח אליו.</h2>
+      <p>זה משקף את ההתנהגות האמיתית של הקוד, לא הצהרת פרטיות גנרית.</p>
+    </div>
+    <div class="privacy-card">
+      <div class="privacy-row">
+        <span class="pi">🖥️</span>
+        <div><h4>לכידה, עריכה ו-OCR פועלים כולם על המכשיר שלכם</h4><p>לכידת מסך, עורך התמונה, וחילוץ טקסט (Tesseract OCR) אף פעם לא פונים לשרת. אין חשבון, אין התחברות, אין טלמטריה.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🛡️</span>
+        <div><h4>זיהוי והסתרת מידע רגיש קורים מקומית, לפני ששיתפתם משהו</h4><p>אימיילים, טלפונים, מספרי כרטיס אשראי, מפתחות API, כתובות IP ומספרי ת.ז ישראליים מזוהים בכללי דפוס מקומיים ומטושטשים/מכוסים — שום דבר לא נשלח לשום מקום כדי לזהות אותם.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">☁️</span>
+        <div><h4>פיצ'רי AI בענן כבויים כברירת מחדל (<span class="mono">ai_enabled = false</span>)</h4><p>סיכום, טקסט חלופי, תרגום, ניסוח דוח באג, הצעת שם קובץ, ובדיקת תוכן רגיש פועלים רק אם הפעלתם אותם במפורש והזנתם מפתח Anthropic API משלכם — SnapCap לא מגיע עם מפתח משלו.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">📤</span>
+        <div><h4>כשפיצ'ר AI פועל, הצילום הנלכד נשלח ל-API של Anthropic</h4><p>רק אותה תמונה בודדת (לא הספרייה שלכם, לא צילומים אחרים) נשלחת ל-Anthropic למילוי אותה בקשה בודדת — זה המקרה היחיד שבו משהו יוצא מהמכשיר.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🔐</span>
+        <div><h4>מפתח ה-API וכתובות ה-webhook שלכם מוצפנים במנוחה</h4><p>נשמרים ב-<span class="mono">~/.snapcap/config.json</span>, מוצפנים ב-DPAPI של Windows וקשורים לחשבון המשתמש שלכם — לא נשמרים כטקסט גלוי.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">📁</span>
+        <div><h4>כל השאר נשאר בתוך פרופיל המשתמש שלכם</h4><p>ספריית הצילומים נמצאת ב-<span class="mono">~/.snapcap/library/</span>, לוגים ב-<span class="mono">~/.snapcap/logs/</span> — אף פעם לא בתוך תיקיית ההתקנה, אף פעם לא מועלים לשום מקום על ידי SnapCap עצמו.</p></div>
+      </div>
+    </div>
+    <p class="privacy-note">⚠️ יעדי שיתוף שאתם מגדירים בעצמכם (Imgur, S3, webhook מותאם, Slack/Teams) גם הם שולחים מידע מחוץ למכשיר כשאתם משתמשים בהם בפועל — זו פעולה מודעת שאתם מבצעים, לא משהו ש-SnapCap עושה מיוזמתו.</p>
+  </div>
+</section>
+
+<section id="versions-he">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">יומן שינויים</p>
+      <h2>מה השתנה, ולמה</h2>
+      <p>תיעוד מלא ב-<span class="mono">CHANGELOG.md</span>. כאן — התמצית.</p>
+    </div>
+    <div>
+      <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.4.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סבב שיפור מוצר: הצמדה למסך, לכידת טקסט מהירה, פוליש UI, תיקוני באגים אמיתיים</p>
+        <ul class="cl-list">
+          <li><b>נוסף</b> הצמדה למסך — חלון צף תמיד-עליון לצילום הנוכחי.</li>
+          <li><b>נוסף</b> לכידת טקסט מהירה (<span class="mono">Ctrl+Shift+T</span>) — OCR מקומי ישר ללוח, בלי שלב עריכה.</li>
+          <li><b>תוקן</b> קריסה שבה פיצ'רי AI נכשלו עם שגיאה לא-קשורה במקום הודעה ידידותית כשחבילת <span class="mono">anthropic</span> האופציונלית לא הייתה מותקנת.</li>
+          <li><b>תוקן</b> מחרוזת שנשארה במתקין ותיארה את אייקון המגש בצבע הישן (מלפני ה-rebrand).</li>
+          <li>פוליש רדיוסים ומרווחים בעורך, בתפריט המגש ובמתקין — אותה פלטת מותג, בלי שינויי צבע.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.3.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">מעבר אריזה מקובץ בודד עם חילוץ עצמי לתיקיית build רגילה, שמפחית זיהויי שגיא אנטי-וירוס — בלי שינוי הנראה למשתמש.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.2.0</span><span class="cl-date">2026-09-15</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">Rebrand: SnapAI Pro ← <b>SnapCap</b>, זהות טורקיז/כחול חדשה (<span class="mono">#00d9a3</span> / <span class="mono">#3b82f6</span>), תיקוני ניגודיות WCAG-AA בכל כפתורי ה-accent.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">הורדה</p>
+      <h2>מקבלים את SnapCap ל-Windows</h2>
+      <p>קובץ התקנה אחד, שתי השפות מובנות בפנים. מדריך מלא + פתרון תקלות: <span class="mono">README.md</span>.</p>
+    </div>
+    <div class="dl-card">
+      <div class="dl-icon">⬇</div>
+      <div class="dl-info">
+        <h3>SnapCap v1.4.0 עבור Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.4.0.exe</div>
+        <div class="facts">כ-110 MB · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
+      </div>
+      <a class="btn primary" href="../SnapCap-Setup-1.4.0.exe">הורדת קובץ ההתקנה</a>
+    </div>
+    <ol class="install-steps">
+      <li>מריצים את <span class="mono">SnapCap-Setup-1.4.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
+      <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
+      <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
+      <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>
+    </ol>
+    <p class="install-note">Windows עשוי להציג אזהרת SmartScreen כי המתקין עדיין לא חתום דיגיטלית — לוחצים "More info" ← "Run anyway". זה צפוי לכלים עצמאיים קטנים ולא מעיד על שיבוש כלשהו.</p>
+  </div>
+</section>
+
+<section id="faq-he">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">שאלות נפוצות</p>
+      <h2>לפני שמתקינים</h2>
+    </div>
+    <div class="faq-grid">
+      <div class="faq-card">
+        <h3>האם המידע שלי נשלח לענן?</h3>
+        <p>לא, לא כברירת מחדל. לכידה, עריכה, OCR והסתרת מידע רגיש פועלים כולם מקומית. מידע יוצא מהמכשיר רק אם הפעלתם במפורש פיצ'ר AI והזנתם מפתח Anthropic API משלכם — ראו את קטע הפרטיות והאבטחה למעלה.</p>
+      </div>
+      <div class="faq-card">
+        <h3>האם צריך הרשאות מנהל (Admin)?</h3>
+        <p>לא בהכרח — המתקין ברירת המחדל שלו היא <span class="mono">C:\Program Files\SnapCap</span> עם הרשאות אדמין, אך נופל לתיקיית משתמש תחת <span class="mono">%LOCALAPPDATA%</span> אם אין לכם הרשאות, במקום להיכשל.</p>
+      </div>
+      <div class="faq-card">
+        <h3>איפה נשמר המידע שלי?</h3>
+        <p>הכול בתוך פרופיל המשתמש: הגדרות ב-<span class="mono">~/.snapcap/config.json</span> (שדות רגישים מוצפנים ב-DPAPI), צילומים ב-<span class="mono">~/.snapcap/library/</span>, לוגים ב-<span class="mono">~/.snapcap/logs/</span>.</p>
+      </div>
+      <div class="faq-card">
+        <h3>מה קורה אם סוגרים את חלון SnapCap?</h3>
+        <p>ה-X ממזער את SnapCap למגש המערכת — הוא ממשיך לרוץ כדי שקיצורי המקלדת ימשיכו לעבוד. ליציאה אמיתית: קליק ימני על אייקון המגש ובחירה ב"יציאה".</p>
+      </div>
+      <div class="faq-card">
+        <h3>האם ה-OCR עובד עם טקסט בעברית?</h3>
+        <p>ה-OCR פועל על Tesseract מקומית; איכות הזיהוי תלויה בחבילת השפה המותקנת לצד SnapCap. ממשק האפליקציה עצמו דו-לשוני מלא (אנגלית/עברית) עם תמיכת RTL.</p>
+      </div>
+      <div class="faq-card">
+        <h3>מה בדיוק מוסתר אוטומטית?</h3>
+        <p>כתובות אימייל, מספרי טלפון, מספרי כרטיס אשראי, מפתחות/טוקני API, כתובות IP, ומספרי תעודת זהות ישראליים — מזוהים בכללי דפוס מקומיים, ואז מטושטשים או מכוסים על התמונה לפני ייצוא או שיתוף.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>SnapCap · לכידת מסך מקומית-תחילה ל-Windows</span>
+    <span class="paths">
+      <span>מסמך אפיון: <code>SPEC.md</code></span>
+      <span>יומן שינויים: <code>CHANGELOG.md</code></span>
+      <span>מדריך מותג: <code>assets/BRAND.md</code></span>
+    </span>
+  </div>
+  <div class="wrap" style="margin-top:6px;font-size:11px;opacity:0.6">© 2026 SnapCap. כל הזכויות שמורות.</div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  function setSiteLang(lang){
+    var html = document.documentElement;
+    html.setAttribute('data-lang', lang);
+    html.setAttribute('lang', lang === 'he' ? 'he' : 'en');
+    html.setAttribute('dir', lang === 'he' ? 'rtl' : 'ltr');
+    try { localStorage.setItem('snapcap_site_lang', lang); } catch(e){}
+  }
+  window.setSiteLang = setSiteLang;
+  var saved = null;
+  try { saved = localStorage.getItem('snapcap_site_lang'); } catch(e){}
+  setSiteLang(saved === 'he' ? 'he' : 'en');
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Monochrome light (white) — for use on dark backgrounds (dark-mode splash, dark banners) -->
+  <circle cx="128" cy="128" r="118" fill="#ffffff"/>
+  <text x="128" y="128" text-anchor="middle" dominant-baseline="central"
+        font-family="Segoe UI, Arial, sans-serif" font-weight="700"
+        font-size="140" fill="#16213e">S</text>
+</svg>
