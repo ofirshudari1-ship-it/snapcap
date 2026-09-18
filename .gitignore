@@ -21,3 +21,8 @@ venv/
 
 # Logs
 *.log
+SPEC.md
+CHANGELOG.md
+PROJECT.md
+RELEASE-CHECKLIST.md
+DELETIONS.md
