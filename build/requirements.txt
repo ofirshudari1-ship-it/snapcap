@@ -1,0 +1,13 @@
+PyQt6==6.11.0
+Pillow==12.3.0
+pytesseract==0.3.13
+pywin32==312
+keyboard==0.13.5
+pyperclip==1.11.0
+requests==2.34.2
+anthropic==1.5.0
+mss==10.2.0
+numpy==2.5.3
+opencv-python==5.0.0.93
+psutil==7.2.2
+pyinstaller==6.22.3

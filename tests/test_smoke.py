@@ -217,5 +217,63 @@ class TestPinWindow(unittest.TestCase):
             ew._PINNED_WINDOWS.clear()
 
 
+class TestUpdateChecker(unittest.TestCase):
+    """GitHub-based auto-update checker (update_checker.py) — pins the
+    version-comparison logic and confirms network failures never raise."""
+
+    def test_parse_version_strips_leading_v(self):
+        import update_checker as uc
+        self.assertEqual(uc._parse_version("v1.4.2"), (1, 4, 2))
+        self.assertEqual(uc._parse_version("1.4.2"), (1, 4, 2))
+
+    def test_is_newer_true_when_tag_ahead(self):
+        import update_checker as uc
+        self.assertTrue(uc._is_newer("v1.4.2", "1.4.1"))
+        self.assertTrue(uc._is_newer("v2.0.0", "1.4.9"))
+
+    def test_is_newer_false_when_equal_or_behind(self):
+        import update_checker as uc
+        self.assertFalse(uc._is_newer("v1.4.1", "1.4.1"))
+        self.assertFalse(uc._is_newer("v1.4.0", "1.4.1"))
+
+    def test_is_newer_never_raises_on_malformed_tag(self):
+        import update_checker as uc
+        self.assertFalse(uc._is_newer("not-a-version", "1.4.1"))
+
+    def test_check_for_update_returns_none_on_network_failure(self):
+        import update_checker as uc
+
+        def _raise(*args, **kwargs):
+            raise OSError("simulated: offline")
+
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=_raise):
+            result = uc.check_for_update("1.4.1")
+        self.assertIsNone(result)
+
+    def test_check_for_update_parses_github_response(self):
+        import json
+        import update_checker as uc
+
+        class _FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "tag_name": "v1.5.0",
+                    "html_url": "https://github.com/ofirshudari1-ship-it/snapcap/releases/tag/v1.5.0",
+                }).encode("utf-8")
+
+        with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
+            result = uc.check_for_update("1.4.1")
+        self.assertEqual(result, {
+            "version": "1.5.0",
+            "url": "https://github.com/ofirshudari1-ship-it/snapcap/releases/tag/v1.5.0",
+        })
+
+
 if __name__ == "__main__":
     unittest.main()

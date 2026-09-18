@@ -32,6 +32,7 @@ from PIL import Image, ImageQt
 import config as cfg
 import share_manager as sm
 import ai_engine as ai
+import update_checker
 from i18n import t, is_rtl, current_language
 
 
@@ -1417,6 +1418,13 @@ class SettingsDialog(QDialog):
         self._check_updates_cb.setChecked(self._conf.get("check_updates", True))
         l.addWidget(self._check_updates_cb)
 
+        check_now_btn = QPushButton(t("btn_check_updates_now", lang))
+        check_now_btn.clicked.connect(self._check_for_updates_now)
+        row = QHBoxLayout()
+        row.addWidget(check_now_btn)
+        row.addStretch()
+        l.addLayout(row)
+
         self._watermark_cb = QCheckBox(t("cb_watermark", lang))
         self._watermark_cb.setChecked(self._conf.get("watermark_enabled", False))
         l.addWidget(self._watermark_cb)
@@ -1431,6 +1439,28 @@ class SettingsDialog(QDialog):
 
         l.addStretch()
         return w
+
+    def _check_for_updates_now(self):
+        """Manual 'Check for Updates' — runs the same GitHub Releases check
+        as the background one, but synchronously (user explicitly asked and
+        is waiting), with a wait cursor and a result dialog either way."""
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            info = update_checker.check_for_update(cfg.APP_VERSION)
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        if info:
+            reply = QMessageBox.information(
+                self, t("update_available_title", self._lang),
+                t("update_available_msg", self._lang, version=info["version"]),
+            )
+            update_checker.open_release_page(info["url"])
+        else:
+            QMessageBox.information(
+                self, t("update_available_title", self._lang),
+                t("update_check_latest_msg", self._lang, version=cfg.APP_VERSION),
+            )
 
     def _is_startup(self) -> bool:
         try:

@@ -1,26 +1,23 @@
-# Build / packaging output
-build/
-dist/
-*.spec.bak
+# Build artifacts — rebuilt from source via build/build_exe.bat + PyInstaller,
+# never committed (PyInstaller-generated .spec files carry absolute machine
+# paths and are regenerated too).
+build/dist/
+build/pyinstaller_work/
+build/pyinstaller-work/
+build/installer_dist/
+build/*.spec
+*.spec
 
-# PyInstaller work dirs
-*.egg-info/
+# The distributable installer ships as a GitHub Release ASSET, never as a
+# repo file (it's 100+ MB and machine-built).
+/*.exe
+
+# Python
 __pycache__/
 *.pyc
-
-# Virtual environments
+*.pyo
 venv/
 .venv/
-env/
 
-# Installer artifacts (released as GitHub release assets, not committed)
-*.exe
-
-# Editors / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-# Local logs / crash dumps
+# Logs
 *.log
