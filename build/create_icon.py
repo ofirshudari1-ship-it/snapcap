@@ -61,10 +61,19 @@ for size in sizes:
 out_dir = os.path.join(os.path.dirname(__file__), "..", "assets")
 os.makedirs(out_dir, exist_ok=True)
 out_path = os.path.join(out_dir, "icon.ico")
-imgs[0].save(
+
+# NOTE (found + fixed 2026-09-20, build verification for v1.4.2): Pillow's ICO
+# writer uses the size of the PRIMARY image (the one .save() is called on) as
+# a ceiling — any requested size in `sizes` larger than the primary image's
+# own dimensions is silently dropped (IcoImagePlugin._save: `if size[0] >
+# width or size[1] > height: continue`). Saving on imgs[0] (16x16, the
+# smallest) meant every larger size (32..256) was discarded, producing a
+# broken single-frame 16x16 icon.ico with no error. Save on imgs[-1] (256x256,
+# the largest) instead so every requested size fits within the primary image.
+imgs[-1].save(
     out_path,
     format="ICO",
     sizes=[(s, s) for s in sizes],
-    append_images=imgs[1:],
+    append_images=imgs[:-1],
 )
 print(f"Icon created: {out_path}")
