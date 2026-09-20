@@ -146,6 +146,7 @@ class Canvas(QWidget):
         self.line_width = 3
         self.font_size = 18
         self.opacity = 1.0
+        self.fill_shape = False  # Rect/Ellipse: outline-only (default) or solid-filled
 
         self._drawing = False
         self._start_pt: Optional[QPoint] = None
@@ -356,11 +357,11 @@ class Canvas(QWidget):
             p.drawLine(start, end)
         elif self.tool == TOOL_RECT:
             p.setPen(self._pen())
-            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setBrush(QBrush(self.color) if self.fill_shape else Qt.BrushStyle.NoBrush)
             p.drawRect(rect)
         elif self.tool == TOOL_ELLIPSE:
             p.setPen(self._pen())
-            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setBrush(QBrush(self.color) if self.fill_shape else Qt.BrushStyle.NoBrush)
             p.drawEllipse(rect)
         elif self.tool == TOOL_HIGHLIGHT:
             c = QColor(self.color)
@@ -446,11 +447,11 @@ class Canvas(QWidget):
                 self._draw_arrow(p, start, end)
             elif self.tool == TOOL_RECT:
                 p.setPen(self._pen(self.line_width, self.color))
-                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.setBrush(QBrush(self.color) if self.fill_shape else Qt.BrushStyle.NoBrush)
                 p.drawRect(rect)
             elif self.tool == TOOL_ELLIPSE:
                 p.setPen(self._pen(self.line_width, self.color))
-                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.setBrush(QBrush(self.color) if self.fill_shape else Qt.BrushStyle.NoBrush)
                 p.drawEllipse(rect)
             elif self.tool in (TOOL_BLUR, TOOL_PIXELATE, TOOL_HIGHLIGHT, TOOL_CROP):
                 c = QColor(ACCENT2)
@@ -671,6 +672,15 @@ class EditorWindow(QMainWindow):
                 border-radius: 8px; padding: 4px 8px; color: {TEXT_FG};
             }}
             QLabel {{ color: {TEXT_FG}; }}
+            QGroupBox {{
+                border: 1px solid {TOOL_BTN}; border-radius: 10px;
+                margin-top: 10px; padding: 10px 8px 4px 8px; font-weight: bold;
+                color: {TEXT_FG};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin; left: 10px; padding: 0 6px;
+                color: {TEXT_FG};
+            }}
             QStatusBar {{ background: {PANEL_BG}; color: #aaa; padding: 2px 8px; }}
             QSlider::groove:horizontal {{
                 background: {TOOL_BTN}; height: 4px; border-radius: 2px;
@@ -781,6 +791,23 @@ class EditorWindow(QMainWindow):
         self._width_spin.valueChanged.connect(lambda v: setattr(self.canvas, "line_width", v))
         self._width_spin.setFixedWidth(56)
         layout.addWidget(self._width_spin, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Text/callout font size — previously hardcoded at 18 with no way to
+        # change it from the UI at all.
+        self._font_spin = QSpinBox()
+        self._font_spin.setRange(8, 96)
+        self._font_spin.setValue(18)
+        self._font_spin.setToolTip("Text size (Text / Callout tools)")
+        self._font_spin.valueChanged.connect(lambda v: setattr(self.canvas, "font_size", v))
+        self._font_spin.setFixedWidth(56)
+        layout.addWidget(self._font_spin, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Fill toggle — Rect/Ellipse only; outline-only stays the default so
+        # existing muscle memory/behavior doesn't change.
+        self._fill_cb = QCheckBox("Fill")
+        self._fill_cb.setToolTip("Fill Rect / Ellipse with the selected color")
+        self._fill_cb.toggled.connect(lambda v: setattr(self.canvas, "fill_shape", bool(v)))
+        layout.addWidget(self._fill_cb, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Preset colors row
         clr_grid = QGridLayout()
@@ -1265,6 +1292,14 @@ class SettingsDialog(QDialog):
                 border-radius: 8px; padding: 6px 10px;
             }}
             QCheckBox {{ color: {TEXT_FG}; }}
+            QGroupBox {{
+                border: 1px solid {TOOL_BTN}; border-radius: 10px;
+                margin-top: 10px; padding: 10px 8px 4px 8px; font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin; left: 10px; padding: 0 6px;
+                color: {TEXT_FG};
+            }}
             QTabWidget::pane {{ border: 1px solid {TOOL_BTN}; background: {PANEL_BG}; border-radius: 8px; }}
             QTabBar::tab {{ background: {PANEL_BG}; color: {TEXT_FG}; padding: 8px 16px; border-top-left-radius: 8px; border-top-right-radius: 8px; }}
             QTabBar::tab:selected {{ background: {TOOL_HOV}; }}
@@ -1308,7 +1343,10 @@ class SettingsDialog(QDialog):
         l = QVBoxLayout(w)
         lang = self._lang
 
-        # Language selector
+        # ── Appearance ────────────────────────────────────────────────────────
+        appearance_box = QGroupBox(t("grp_appearance", lang))
+        al = QVBoxLayout(appearance_box)
+
         self._lang_combo = QComboBox()
         self._lang_combo.addItem(t("lang_english", "en"), "en")
         self._lang_combo.addItem(t("lang_hebrew", "he"), "he")
@@ -1318,7 +1356,7 @@ class SettingsDialog(QDialog):
         idx = self._lang_combo.findData(current)
         if idx >= 0:
             self._lang_combo.setCurrentIndex(idx)
-        l.addLayout(self._row(t("lbl_language", lang), self._lang_combo))
+        al.addLayout(self._row(t("lbl_language", lang), self._lang_combo))
 
         self._theme_combo = QComboBox()
         self._theme_combo.addItem("🖥️ System", "system")
@@ -1327,34 +1365,59 @@ class SettingsDialog(QDialog):
         idx = self._theme_combo.findData(self._conf.get("theme", "system"))
         if idx >= 0:
             self._theme_combo.setCurrentIndex(idx)
-        l.addLayout(self._row(t("lbl_theme", lang), self._theme_combo))
+        al.addLayout(self._row(t("lbl_theme", lang), self._theme_combo))
+
+        l.addWidget(appearance_box)
+
+        # ── Capture ───────────────────────────────────────────────────────────
+        capture_box = QGroupBox(t("grp_capture", lang))
+        cl = QVBoxLayout(capture_box)
 
         self._save_dir_edit = QLineEdit(self._conf.get("save_dir", ""))
-        l.addLayout(self._row(t("lbl_save_dir", lang), self._save_dir_edit))
+        cl.addLayout(self._row(t("lbl_save_dir", lang), self._save_dir_edit))
 
         fmt_combo = QComboBox()
         fmt_combo.addItems(["png", "jpg", "webp"])
         fmt_combo.setCurrentText(self._conf.get("image_format", "png"))
         self._fmt_combo = fmt_combo
-        l.addLayout(self._row(t("lbl_format", lang), fmt_combo))
+        cl.addLayout(self._row(t("lbl_format", lang), fmt_combo))
+
+        self._delay_combo = QComboBox()
+        for secs in (0, 3, 5, 10):
+            label = t("capture_delay_none", lang) if secs == 0 else t("capture_delay_fmt", lang, sec=secs)
+            self._delay_combo.addItem(label, secs)
+        idx = self._delay_combo.findData(self._conf.get("capture_delay_sec", 0))
+        if idx >= 0:
+            self._delay_combo.setCurrentIndex(idx)
+        cl.addLayout(self._row(t("lbl_capture_delay", lang), self._delay_combo))
 
         self._auto_copy_cb = QCheckBox(t("cb_auto_copy", lang))
         self._auto_copy_cb.setChecked(self._conf.get("auto_copy", True))
-        l.addWidget(self._auto_copy_cb)
+        cl.addWidget(self._auto_copy_cb)
 
         self._auto_save_cb = QCheckBox(t("cb_auto_save", lang))
         self._auto_save_cb.setChecked(self._conf.get("auto_save", True))
-        l.addWidget(self._auto_save_cb)
+        cl.addWidget(self._auto_save_cb)
+
+        self._capture_sound_cb = QCheckBox(t("cb_capture_sound", lang))
+        self._capture_sound_cb.setChecked(self._conf.get("capture_sound", True))
+        cl.addWidget(self._capture_sound_cb)
+
+        self._skip_editor_cb = QCheckBox(t("cb_skip_editor", lang))
+        self._skip_editor_cb.setChecked(self._conf.get("skip_editor_on_capture", False))
+        cl.addWidget(self._skip_editor_cb)
 
         self._auto_redact_cb = QCheckBox(t("cb_auto_redact", lang))
         self._auto_redact_cb.setChecked(self._conf.get("auto_redact", False))
-        l.addWidget(self._auto_redact_cb)
+        cl.addWidget(self._auto_redact_cb)
 
         redact_style_combo = QComboBox()
         redact_style_combo.addItems(["blur", "pixelate", "black", "label"])
         redact_style_combo.setCurrentText(self._conf.get("redact_style", "blur"))
         self._redact_style_combo = redact_style_combo
-        l.addLayout(self._row(t("lbl_redact_style", lang), redact_style_combo))
+        cl.addLayout(self._row(t("lbl_redact_style", lang), redact_style_combo))
+
+        l.addWidget(capture_box)
 
         l.addStretch()
         return w
@@ -1530,6 +1593,9 @@ class SettingsDialog(QDialog):
         self._conf["image_format"] = self._fmt_combo.currentText()
         self._conf["auto_copy"] = self._auto_copy_cb.isChecked()
         self._conf["auto_save"] = self._auto_save_cb.isChecked()
+        self._conf["capture_delay_sec"] = self._delay_combo.currentData()
+        self._conf["capture_sound"] = self._capture_sound_cb.isChecked()
+        self._conf["skip_editor_on_capture"] = self._skip_editor_cb.isChecked()
         self._conf["auto_redact"] = self._auto_redact_cb.isChecked()
         self._conf["redact_style"] = self._redact_style_combo.currentText()
         self._conf["anthropic_api_key"] = self._api_key_edit.text().strip()

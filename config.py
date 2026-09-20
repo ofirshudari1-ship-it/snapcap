@@ -84,6 +84,10 @@ DEFAULT_CONFIG = {
     "check_updates":       True,
     "language":            "en",  # default is English for every tool (2026-09-14 decision) — was "auto" (system-locale detection, which silently switched to Hebrew on he-IL Windows)
     "redact_style":        "blur",
+    # 2026-09-20 "wow" upgrade pass — real, opt-out-able capture behavior:
+    "capture_delay_sec":     0,     # 0/3/5/10 — countdown shown before the actual pixel-grab, so a user can open a menu/tooltip first
+    "capture_sound":         True, # short shutter sound on every successful capture (winsound, no bundled asset)
+    "skip_editor_on_capture": False,  # when True: capture still auto-copies/saves/redacts/watermarks, but the annotation editor doesn't pop open every time
 }
 
 

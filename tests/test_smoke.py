@@ -275,5 +275,89 @@ class TestUpdateChecker(unittest.TestCase):
         })
 
 
+class TestCaptureDelay(unittest.TestCase):
+    """Capture delay (Settings → General → 'Capture delay') — pins the
+    countdown badge's pure tick logic and the new config defaults, without
+    needing a live capture pipeline or display interaction."""
+
+    def test_capture_delay_default_is_zero(self):
+        import config as cfg
+        self.assertEqual(cfg.DEFAULT_CONFIG["capture_delay_sec"], 0)
+
+    def test_capture_sound_default_is_true(self):
+        import config as cfg
+        self.assertTrue(cfg.DEFAULT_CONFIG["capture_sound"])
+
+    def test_skip_editor_default_is_false(self):
+        import config as cfg
+        self.assertFalse(cfg.DEFAULT_CONFIG["skip_editor_on_capture"])
+
+    def test_countdown_overlay_ticks_down_and_emits_finished(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import main as m
+
+        overlay = m._CountdownOverlay(2)
+        fired = []
+        overlay.finished.connect(lambda: fired.append(True))
+        overlay._tick()  # 2 -> 1, not done yet
+        self.assertEqual(fired, [])
+        overlay._tick()  # 1 -> 0, fires and closes
+        self.assertEqual(fired, [True])
+
+    def test_run_after_delay_with_zero_seconds_calls_immediately(self):
+        """0 seconds (the default) must behave exactly like before this
+        setting existed: fn() runs synchronously, no overlay is created."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from unittest.mock import MagicMock
+        app = QApplication.instance() or QApplication(sys.argv)
+        import main as m
+
+        instance = MagicMock()
+        instance._conf = {"capture_delay_sec": 0}
+        called = []
+        m.SnapCapApp._run_after_delay(instance, lambda: called.append(True))
+        self.assertEqual(called, [True])
+
+
+class TestShapeFillAndFontSize(unittest.TestCase):
+    """Rect/Ellipse fill toggle and the (previously unreachable-from-UI)
+    text/callout font-size control on the Canvas."""
+
+    def test_canvas_fill_shape_defaults_off(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import editor_window as ew
+        c = ew.Canvas()
+        self.assertFalse(c.fill_shape)
+
+    def test_canvas_font_size_is_settable(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import editor_window as ew
+        c = ew.Canvas()
+        c.font_size = 42
+        self.assertEqual(c.font_size, 42)
+
+
+class TestNewSettingsTranslations(unittest.TestCase):
+    """Every new Settings string added in the 2026-09-20 upgrade pass must
+    exist in both shipped languages, not just fall back silently to the key."""
+
+    def test_new_keys_translated_both_languages(self):
+        from i18n import t
+        for key in ("grp_capture", "grp_appearance", "lbl_capture_delay",
+                    "capture_delay_none", "capture_delay_fmt",
+                    "cb_capture_sound", "cb_skip_editor", "captured_quiet_msg"):
+            self.assertTrue(t(key, "en"))
+            self.assertTrue(t(key, "he"))
+            self.assertNotEqual(t(key, "en"), key)
+            self.assertNotEqual(t(key, "he"), key)
+
+
 if __name__ == "__main__":
     unittest.main()

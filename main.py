@@ -13,7 +13,7 @@ from typing import Optional
 os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
 
 from PyQt6.QtWidgets import (
-    QApplication, QSystemTrayIcon, QMenu, QMessageBox, QDialog,
+    QApplication, QSystemTrayIcon, QMenu, QMessageBox, QDialog, QWidget,
 )
 from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QFont, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
@@ -132,6 +132,60 @@ def _make_tray_icon() -> QIcon:
     p.drawText(pxm.rect(), Qt.AlignmentFlag.AlignCenter, "S")
     p.end()
     return QIcon(pxm)
+
+
+# ── Capture-delay countdown overlay ─────────────────────────────────────────────
+class _CountdownOverlay(QWidget):
+    """A small always-on-top translucent badge shown before a delayed
+    capture (Settings → Capture delay). Gives the user a few seconds to
+    open a menu, tooltip, or hover state after triggering the hotkey — the
+    thing that's otherwise impossible to capture because it disappears the
+    moment focus moves. Purely visual; the actual capture fires from
+    `finished` once the countdown reaches zero."""
+    finished = pyqtSignal()
+
+    def __init__(self, seconds: int):
+        super().__init__(
+            None,
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool,
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self._remaining = max(1, int(seconds))
+        self.resize(84, 84)
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            self.move(geo.center().x() - self.width() // 2, geo.center().y() - self.height() // 2)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+
+    def start(self):
+        self.show()
+        self.raise_()
+        self._timer.start(1000)
+
+    def _tick(self):
+        self._remaining -= 1
+        if self._remaining <= 0:
+            self._timer.stop()
+            self.close()
+            self.finished.emit()
+        else:
+            self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setBrush(QColor(22, 33, 62, 225))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(self.rect())
+        p.setPen(QColor("#00d9a3"))
+        p.setFont(QFont("Segoe UI", 30, QFont.Weight.Bold))
+        p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, str(max(1, self._remaining)))
+        p.end()
 
 
 # ── Signal bridge for thread-safe GUI calls ────────────────────────────────────
@@ -291,11 +345,46 @@ class SnapCapApp:
         except ImportError:
             pass
 
+    # ── Capture delay ──────────────────────────────────────────────────────────
+    def _run_after_delay(self, fn):
+        """Runs fn() immediately, or — if the user configured a capture
+        delay in Settings → General — shows a countdown badge first and
+        runs fn() once it reaches zero. Default (0 seconds) preserves the
+        exact prior behavior of every capture entry point."""
+        seconds = self._conf.get("capture_delay_sec", 0)
+        if not seconds:
+            fn()
+            return
+        overlay = _CountdownOverlay(seconds)
+        self._active_countdown = overlay  # keep a reference so Qt doesn't GC it mid-countdown
+        def _fire():
+            self._active_countdown = None
+            fn()
+        overlay.finished.connect(_fire)
+        overlay.start()
+
+    def _play_shutter_sound(self):
+        """Best-effort shutter sound (Settings → General → 'Play a shutter
+        sound on capture'). Uses the stdlib winsound module — no bundled
+        audio asset, matching the rest of the app's zero-extra-dependency
+        approach — off the Qt thread so its short blocking call can never
+        stutter the capture flow."""
+        def _play():
+            try:
+                import winsound
+                winsound.MessageBeep(winsound.MB_OK)
+            except Exception:
+                pass
+        threading.Thread(target=_play, daemon=True).start()
+
     # ── Post-capture pipeline ──────────────────────────────────────────────────
     def _post_capture(self, img: Image.Image):
         if not img:
             return
         conf = cfg.load()
+
+        if conf.get("capture_sound", True):
+            self._play_shutter_sound()
 
         # Auto-redact PII
         if conf.get("auto_redact"):
@@ -314,13 +403,15 @@ class SnapCapApp:
             import ai_engine as ai
             img = ai.add_watermark(img, conf["watermark_text"])
 
-        from editor_window import EditorWindow
-        win = EditorWindow(img)
-        win.show()
-        self._editor_windows.append(win)
-        win.destroyed.connect(
-            lambda: self._editor_windows.remove(win) if win in self._editor_windows else None
-        )
+        skip_editor = conf.get("skip_editor_on_capture", False)
+        if not skip_editor:
+            from editor_window import EditorWindow
+            win = EditorWindow(img)
+            win.show()
+            self._editor_windows.append(win)
+            win.destroyed.connect(
+                lambda: self._editor_windows.remove(win) if win in self._editor_windows else None
+            )
 
         if conf.get("auto_copy"):
             import share_manager as sm
@@ -333,6 +424,14 @@ class SnapCapApp:
             self.tray.showMessage(
                 t("app_name", lang), t("saved_msg", lang, filename=Path(path).name),
                 QSystemTrayIcon.MessageIcon.Information, 2000,
+            )
+        elif skip_editor:
+            # Editor stayed closed and nothing was auto-saved — the user
+            # still needs *some* confirmation the hotkey actually worked.
+            lang = current_language()
+            self.tray.showMessage(
+                t("app_name", lang), t("captured_quiet_msg", lang),
+                QSystemTrayIcon.MessageIcon.Information, 1200,
             )
 
     # ── Capture actions ────────────────────────────────────────────────────────
@@ -348,7 +447,7 @@ class SnapCapApp:
             if result:
                 x, y, w, h = result
                 log.info("Region selected: %dx%d at (%d,%d)", w, h, x, y)
-                self._post_capture(ce.capture_region(x, y, w, h))
+                self._run_after_delay(lambda: self._post_capture(ce.capture_region(x, y, w, h)))
             else:
                 log.info("Region capture cancelled by user")
         except Exception as e:
@@ -359,7 +458,7 @@ class SnapCapApp:
         import capture_engine as ce
         def _do():
             try:
-                self._post_capture(ce.capture_fullscreen())
+                self._run_after_delay(lambda: self._post_capture(ce.capture_fullscreen()))
             except Exception as e:
                 sys.excepthook(type(e), e, e.__traceback__)
         QTimer.singleShot(300, _do)
@@ -369,7 +468,7 @@ class SnapCapApp:
         import capture_engine as ce
         def _do():
             try:
-                self._post_capture(ce.capture_active_window()[0])
+                self._run_after_delay(lambda: self._post_capture(ce.capture_active_window()[0]))
             except Exception as e:
                 sys.excepthook(type(e), e, e.__traceback__)
         QTimer.singleShot(300, _do)
@@ -378,35 +477,39 @@ class SnapCapApp:
         try:
             import capture_engine as ce
             from PyQt6.QtWidgets import QProgressDialog
-            progress = QProgressDialog("Scrolling and stitching…", "Cancel", 0, 100)
-            progress.setWindowTitle("SnapCap — Scrolling Capture")
-            progress.setMinimumDuration(0)
-            progress.setValue(0)
-            progress.show()
 
-            def run():
-                try:
-                    sc = ce.ScrollCapture()
-                    def cb(i, total):
-                        pct = int(i / total * 100)
-                        QTimer.singleShot(0, lambda p=pct: progress.setValue(p))
-                    img = sc.capture(progress_callback=cb)
-                    QTimer.singleShot(0, lambda: _done(img))
-                except Exception as e:
-                    QTimer.singleShot(0, lambda: _fail(e))
+            def _start():
+                progress = QProgressDialog("Scrolling and stitching…", "Cancel", 0, 100)
+                progress.setWindowTitle("SnapCap — Scrolling Capture")
+                progress.setMinimumDuration(0)
+                progress.setValue(0)
+                progress.show()
 
-            def _done(img):
-                progress.close()
-                try:
-                    self._post_capture(img)
-                except Exception as e:
+                def run():
+                    try:
+                        sc = ce.ScrollCapture()
+                        def cb(i, total):
+                            pct = int(i / total * 100)
+                            QTimer.singleShot(0, lambda p=pct: progress.setValue(p))
+                        img = sc.capture(progress_callback=cb)
+                        QTimer.singleShot(0, lambda: _done(img))
+                    except Exception as e:
+                        QTimer.singleShot(0, lambda: _fail(e))
+
+                def _done(img):
+                    progress.close()
+                    try:
+                        self._post_capture(img)
+                    except Exception as e:
+                        sys.excepthook(type(e), e, e.__traceback__)
+
+                def _fail(e):
+                    progress.close()
                     sys.excepthook(type(e), e, e.__traceback__)
 
-            def _fail(e):
-                progress.close()
-                sys.excepthook(type(e), e, e.__traceback__)
+                threading.Thread(target=run, daemon=True).start()
 
-            threading.Thread(target=run, daemon=True).start()
+            self._run_after_delay(_start)
         except Exception as e:
             sys.excepthook(type(e), e, e.__traceback__)
 
