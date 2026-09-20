@@ -1419,6 +1419,24 @@ class SettingsDialog(QDialog):
 
         l.addWidget(capture_box)
 
+        # ── Startup (Windows integration) ────────────────────────────────────
+        startup_box = QGroupBox(t("grp_startup", lang))
+        sl = QVBoxLayout(startup_box)
+
+        self._startup_cb = QCheckBox(t("save_startup", lang))
+        self._startup_cb.setChecked(self._is_startup())
+        sl.addWidget(self._startup_cb)
+
+        self._skip_splash_cb = QCheckBox(t("cb_skip_splash_autostart", lang))
+        self._skip_splash_cb.setChecked(self._conf.get("skip_splash_on_autostart", True))
+        sl.addWidget(self._skip_splash_cb)
+
+        self._startup_notif_cb = QCheckBox(t("cb_show_startup_notification", lang))
+        self._startup_notif_cb.setChecked(self._conf.get("show_startup_notification", True))
+        sl.addWidget(self._startup_notif_cb)
+
+        l.addWidget(startup_box)
+
         l.addStretch()
         return w
 
@@ -1495,11 +1513,6 @@ class SettingsDialog(QDialog):
         self._watermark_edit = QLineEdit(self._conf.get("watermark_text", ""))
         l.addLayout(self._row(t("lbl_watermark_text", lang), self._watermark_edit))
 
-        l.addSpacing(8)
-        self._startup_cb = QCheckBox(t("save_startup", lang))
-        self._startup_cb.setChecked(self._is_startup())
-        l.addWidget(self._startup_cb)
-
         l.addStretch()
         return w
 
@@ -1544,7 +1557,10 @@ class SettingsDialog(QDialog):
                                  r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
                                  winreg.KEY_SET_VALUE)
             if enable:
-                winreg.SetValueEx(key, "SnapCap", 0, winreg.REG_SZ, f'"{sys.executable}"')
+                # --autostart lets main.py tell a Windows-boot launch apart from
+                # a normal double-click, so it can skip the splash screen /
+                # startup balloon per the Startup settings below.
+                winreg.SetValueEx(key, "SnapCap", 0, winreg.REG_SZ, f'"{sys.executable}" --autostart')
             else:
                 try:
                     winreg.DeleteValue(key, "SnapCap")
@@ -1589,6 +1605,8 @@ class SettingsDialog(QDialog):
         self._conf["language"] = self._lang_combo.currentData()
         self._conf["theme"] = self._theme_combo.currentData()
         self._set_startup(self._startup_cb.isChecked())
+        self._conf["skip_splash_on_autostart"] = self._skip_splash_cb.isChecked()
+        self._conf["show_startup_notification"] = self._startup_notif_cb.isChecked()
         self._conf["save_dir"] = self._save_dir_edit.text()
         self._conf["image_format"] = self._fmt_combo.currentText()
         self._conf["auto_copy"] = self._auto_copy_cb.isChecked()

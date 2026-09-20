@@ -358,6 +358,214 @@ class TestNewSettingsTranslations(unittest.TestCase):
             self.assertNotEqual(t(key, "en"), key)
             self.assertNotEqual(t(key, "he"), key)
 
+    def test_startup_group_keys_translated_both_languages(self):
+        from i18n import t
+        for key in ("grp_startup", "save_startup", "cb_skip_splash_autostart",
+                    "cb_show_startup_notification"):
+            self.assertTrue(t(key, "en"))
+            self.assertTrue(t(key, "he"))
+            self.assertNotEqual(t(key, "en"), key)
+            self.assertNotEqual(t(key, "he"), key)
+
+
+class TestTrayLifecycle(unittest.TestCase):
+    """App-close vs tray-quit separation (2026-09-20 Windows-integration
+    audit): closing a window must never quit the whole app — only the tray
+    menu's Exit action may — and the tray context menu must always expose
+    a clearly separate quit action."""
+
+    def test_quit_on_last_window_closed_is_disabled(self):
+        """Without this flag, PyQt auto-quits the app when the last visible
+        top-level window (library/editor/settings) is closed, which would
+        silently kill the tray icon and global hotkeys along with it."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
+        self.assertFalse(app.quitOnLastWindowClosed())
+
+    def test_library_window_is_not_deleted_on_close(self):
+        """LibraryWindow must hide (not destroy) on close so main.py's cached
+        `self._library_window` reference stays valid and reopening the
+        library shows the same instance instead of silently no-oping."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import Qt
+        app = QApplication.instance() or QApplication(sys.argv)
+        import library_window as lw
+        win = lw.LibraryWindow()
+        try:
+            self.assertFalse(win.testAttribute(Qt.WidgetAttribute.WA_DeleteOnClose))
+        finally:
+            win.close()
+            win.deleteLater()
+
+    def test_tray_menu_has_a_distinct_quit_action(self):
+        """The tray context menu must contain an action whose triggered
+        signal is wired to QApplication.quit (not merely hiding a window),
+        separate from every capture/library/settings action."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import main as m
+
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap.app = app
+        snap._conf = __import__("config").load()
+        snap._bridge = m._Bridge()
+        m.SnapCapApp._setup_tray(snap)
+        try:
+            actions = snap.tray.contextMenu().actions()
+            texts = [a.text() for a in actions if not a.isSeparator()]
+            # At least one action's label is the quit/exit string, and it's
+            # wired straight to app.quit (not one of the capture/open actions).
+            from i18n import t
+            self.assertTrue(any(t("tray_quit", "en") in text for text in texts))
+        finally:
+            snap.tray.hide()
+            snap.tray.deleteLater()
+
+
+class TestStartupRegistry(unittest.TestCase):
+    """Windows-startup toggle (Settings → General → Startup). winreg isn't
+    mockable with unittest.mock.patch("winreg", ...) because the target
+    functions do a local `import winreg` on every call — so these tests
+    inject a fake module into sys.modules for the duration of the call,
+    which Python's import machinery picks up exactly like a real module."""
+
+    @staticmethod
+    def _fake_winreg(existing_value=None):
+        """existing_value=None simulates the Run-key value being absent
+        (QueryValueEx raises), matching a real registry read."""
+        import types
+
+        calls = {"set": None, "deleted": False}
+
+        def _open_key(hive, path, reserved, access):
+            return "FAKE_KEY_HANDLE"
+
+        def _close_key(key):
+            pass
+
+        def _set_value_ex(key, name, reserved, type_, value):
+            calls["set"] = (name, value)
+
+        def _query_value_ex(key, name):
+            if existing_value is None:
+                raise FileNotFoundError()
+            return (existing_value, 1)
+
+        def _delete_value(key, name):
+            calls["deleted"] = True
+
+        fake = types.SimpleNamespace(
+            HKEY_CURRENT_USER="HKCU",
+            KEY_SET_VALUE=1,
+            KEY_READ=1,
+            REG_SZ=1,
+            OpenKey=_open_key,
+            CloseKey=_close_key,
+            SetValueEx=_set_value_ex,
+            QueryValueEx=_query_value_ex,
+            DeleteValue=_delete_value,
+        )
+        return fake, calls
+
+    def test_set_startup_enable_writes_autostart_flag(self):
+        """The Run-key command must include --autostart so a boot-time
+        launch can be told apart from a manual one (see main._should_skip_splash)."""
+        import sys as _sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(_sys.argv)
+        import editor_window as ew
+
+        dlg = ew.SettingsDialog.__new__(ew.SettingsDialog)
+        fake_winreg, calls = self._fake_winreg()
+        with unittest.mock.patch.dict(_sys.modules, {"winreg": fake_winreg}):
+            ew.SettingsDialog._set_startup(dlg, True)
+
+        self.assertIsNotNone(calls["set"])
+        name, value = calls["set"]
+        self.assertEqual(name, "SnapCap")
+        self.assertIn("--autostart", value)
+
+    def test_set_startup_disable_deletes_value(self):
+        import sys as _sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(_sys.argv)
+        import editor_window as ew
+
+        dlg = ew.SettingsDialog.__new__(ew.SettingsDialog)
+        fake_winreg, calls = self._fake_winreg(existing_value='"C:\\SnapCap.exe" --autostart')
+        with unittest.mock.patch.dict(_sys.modules, {"winreg": fake_winreg}):
+            ew.SettingsDialog._set_startup(dlg, False)
+
+        self.assertTrue(calls["deleted"])
+        self.assertIsNone(calls["set"])
+
+    def test_is_startup_reflects_live_registry_not_a_cached_flag(self):
+        """Per the task requirement: the checkbox must read the REAL registry
+        state when Settings opens, not trust a stored boolean — e.g. if the
+        user removed the entry via Windows' own Startup Apps settings."""
+        import sys as _sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(_sys.argv)
+        import editor_window as ew
+
+        dlg = ew.SettingsDialog.__new__(ew.SettingsDialog)
+
+        fake_present, _ = self._fake_winreg(existing_value='"C:\\SnapCap.exe" --autostart')
+        with unittest.mock.patch.dict(_sys.modules, {"winreg": fake_present}):
+            self.assertTrue(ew.SettingsDialog._is_startup(dlg))
+
+        fake_absent, _ = self._fake_winreg(existing_value=None)
+        with unittest.mock.patch.dict(_sys.modules, {"winreg": fake_absent}):
+            self.assertFalse(ew.SettingsDialog._is_startup(dlg))
+
+
+class TestSplashSkipOnAutostart(unittest.TestCase):
+    """'Start minimized' behavior for an autostarted instance: main.py skips
+    the splash screen when launched via the --autostart flag SnapCap's own
+    Run-key/startup-shortcut entries pass themselves, unless the user
+    disabled that in Settings → General → Startup."""
+
+    def test_skips_splash_when_autostart_flag_present_and_enabled(self):
+        import main as m
+        self.assertTrue(
+            m._should_skip_splash(["SnapCap.exe", "--autostart"],
+                                   {"skip_splash_on_autostart": True})
+        )
+
+    def test_does_not_skip_without_autostart_flag(self):
+        import main as m
+        self.assertFalse(
+            m._should_skip_splash(["SnapCap.exe"], {"skip_splash_on_autostart": True})
+        )
+
+    def test_does_not_skip_when_user_disabled_the_setting(self):
+        import main as m
+        self.assertFalse(
+            m._should_skip_splash(["SnapCap.exe", "--autostart"],
+                                   {"skip_splash_on_autostart": False})
+        )
+
+    def test_defaults_to_skipping_when_key_missing_from_conf(self):
+        """Matches DEFAULT_CONFIG's default of True — an older config.json
+        saved before this setting existed shouldn't suddenly show a splash
+        on every boot."""
+        import main as m
+        self.assertTrue(m._should_skip_splash(["SnapCap.exe", "--autostart"], {}))
+
+
+class TestNewConfigDefaults(unittest.TestCase):
+    def test_skip_splash_on_autostart_defaults_true(self):
+        import config as cfg
+        self.assertTrue(cfg.DEFAULT_CONFIG["skip_splash_on_autostart"])
+
+    def test_show_startup_notification_defaults_true(self):
+        import config as cfg
+        self.assertTrue(cfg.DEFAULT_CONFIG["show_startup_notification"])
+
 
 if __name__ == "__main__":
     unittest.main()

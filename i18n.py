@@ -120,6 +120,10 @@ STRINGS = {
         "lbl_default_font_size": "Default text size:",
         "cb_fill_shapes": "Fill shape",
         "captured_quiet_msg": "Captured",
+        # Settings — 2026-09-20 Windows-integration pass
+        "grp_startup": "Startup",
+        "cb_skip_splash_autostart": "Skip splash screen when launched at Windows startup",
+        "cb_show_startup_notification": "Show a tray notification each time SnapCap starts",
     },
     "he": {
         "app_name": "SnapCap",
@@ -223,6 +227,9 @@ STRINGS = {
         "lbl_default_font_size": "גודל טקסט ברירת מחדל:",
         "cb_fill_shapes": "מלא צורה",
         "captured_quiet_msg": "צולם",
+        "grp_startup": "הפעלה",
+        "cb_skip_splash_autostart": "דלג על מסך הפתיחה בעת הפעלה עם Windows",
+        "cb_show_startup_notification": "הצג התראת מגש בכל הפעלה של SnapCap",
     },
 }
 

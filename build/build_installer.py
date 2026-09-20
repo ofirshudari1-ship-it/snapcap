@@ -535,7 +535,10 @@ class InstallWorker(QThread):
             if self.startup:
                 self.status.emit("Adding to startup…")
                 startup_dir = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-                self._create_shortcut(dest / "SnapCap.exe", startup_dir / "SnapCap.lnk")
+                # --autostart: lets main.py recognize a boot-time launch and
+                # skip the splash screen / startup balloon by default, same as
+                # the HKCU Run-key path SnapCap writes when toggled from Settings.
+                self._create_shortcut(dest / "SnapCap.exe", startup_dir / "SnapCap.lnk", arguments="--autostart")
                 self.log.emit("✓ Added to startup")
             self.progress.emit(80)
 
@@ -571,7 +574,7 @@ class InstallWorker(QThread):
                 return c
         return None
 
-    def _create_shortcut(self, target: Path, link: Path):
+    def _create_shortcut(self, target: Path, link: Path, arguments: str = ""):
         try:
             import win32com.client
             shell = win32com.client.Dispatch("WScript.Shell")
@@ -579,6 +582,8 @@ class InstallWorker(QThread):
             sc.Targetpath = str(target)
             sc.WorkingDirectory = str(target.parent)
             sc.IconLocation = str(target)
+            if arguments:
+                sc.Arguments = arguments
             sc.save()
         except Exception as e:
             self.log.emit(f"  Shortcut warning: {e}")

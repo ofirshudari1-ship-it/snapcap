@@ -372,7 +372,7 @@ class _SaveDirPage(QWidget):
                                  winreg.KEY_SET_VALUE)
             if enable:
                 exe = sys.executable
-                winreg.SetValueEx(key, "SnapCap", 0, winreg.REG_SZ, f'"{exe}"')
+                winreg.SetValueEx(key, "SnapCap", 0, winreg.REG_SZ, f'"{exe}" --autostart')
             else:
                 try:
                     winreg.DeleteValue(key, "SnapCap")

@@ -311,7 +311,7 @@ class SnapCapApp:
 
         self.tray.setContextMenu(menu)
 
-        if not self._conf.get("first_run", True):
+        if not self._conf.get("first_run", True) and self._conf.get("show_startup_notification", True):
             self.tray.showMessage(
                 t("app_name", lang),
                 t("tray_running", lang),
@@ -609,6 +609,15 @@ class SnapCapApp:
         sys.exit(self.app.exec())
 
 
+def _should_skip_splash(argv: list, conf: dict) -> bool:
+    """True when this launch should skip the splash screen: it was started
+    via the Windows-startup entry SnapCap writes for itself (a trailing
+    "--autostart" argument — see editor_window.SettingsDialog._set_startup
+    and onboarding_wizard._toggle_startup) AND the user hasn't opted out of
+    that quieter boot in Settings → General → Startup."""
+    return "--autostart" in argv and conf.get("skip_splash_on_autostart", True)
+
+
 def _run_uninstall():
     """
     Handle `SnapCap.exe --uninstall`, the command the installer registers
@@ -723,9 +732,17 @@ if __name__ == "__main__":
 
     try:
         _app = QApplication.instance() or QApplication(sys.argv)
-        from splash_screen import show_splash_then
-        app_holder: dict = {}
-        show_splash_then(_app, lambda: app_holder.__setitem__("app", SnapCapApp()))
+
+        # ── Windows-startup launch detection ──────────────────────────────────
+        if "--autostart" in sys.argv:
+            log.info("Launched via Windows startup (--autostart)")
+
+        if _should_skip_splash(sys.argv, cfg.load()):
+            app_holder: dict = {"app": SnapCapApp()}
+        else:
+            from splash_screen import show_splash_then
+            app_holder: dict = {}
+            show_splash_then(_app, lambda: app_holder.__setitem__("app", SnapCapApp()))
         sys.exit(_app.exec())
     finally:
         _release_lock(_lock)

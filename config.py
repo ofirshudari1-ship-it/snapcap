@@ -88,6 +88,14 @@ DEFAULT_CONFIG = {
     "capture_delay_sec":     0,     # 0/3/5/10 — countdown shown before the actual pixel-grab, so a user can open a menu/tooltip first
     "capture_sound":         True, # short shutter sound on every successful capture (winsound, no bundled asset)
     "skip_editor_on_capture": False,  # when True: capture still auto-copies/saves/redacts/watermarks, but the annotation editor doesn't pop open every time
+    # 2026-09-20 Windows-integration pass — Startup group in Settings.
+    # Note: "launch at Windows startup" itself is intentionally NOT stored here —
+    # the HKCU\...\Run registry key is the single source of truth (see
+    # editor_window.SettingsDialog._is_startup/_set_startup), so the checkbox
+    # always reflects reality even if the user removed it via Windows' own
+    # Startup Apps settings instead of through SnapCap.
+    "skip_splash_on_autostart": True,  # when launched via the Run-key/startup-folder entry (--autostart flag), skip the ~1-2s splash screen for a quieter boot
+    "show_startup_notification": True, # the "Running in the system tray" tray balloon shown on every non-first launch — can be silenced for autostart
 }
 
 
