@@ -33,8 +33,216 @@ from config import APP_VERSION as APP_VER  # single source of truth for the vers
 # then compile THAT script with PyInstaller.
 
 INSTALLER_SCRIPT = r'''
-import sys, os, shutil, winreg, subprocess, zipfile, io, base64, struct, threading, locale
+import sys, os, shutil, winreg, subprocess, zipfile, io, base64, struct, threading, locale, time
 from pathlib import Path
+
+APP_NAME   = "SnapCap"
+APP_VER    = "__APP_VERSION__"
+PUBLISHER  = "SnapCap"
+EXE_NAME   = "SnapCap.exe"
+REG_KEY    = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SnapCap"
+
+
+# ── Shared install primitives (used by both the GUI wizard below and the
+# --silent unattended path) ─────────────────────────────────────────────────
+def _find_app_payload_dir() -> "Path | None":
+    """Locates the bundled SnapCap/ app folder next to this installer exe
+    (or in its onefile temp extraction dir). Same search order as
+    InstallWorker._find_app_dir used previously — kept as a free function so
+    the silent path doesn't need a QThread instance to call it."""
+    here = Path(sys.executable).parent
+    candidates = [
+        here / "SnapCap",
+        here.parent / "SnapCap",
+        Path(sys._MEIPASS) / "SnapCap" if hasattr(sys, "_MEIPASS") else None,
+    ]
+    for c in candidates:
+        if c and (c / "SnapCap.exe").exists():
+            return c
+    return None
+
+
+def _read_existing_install_dir() -> "Path | None":
+    """Reads InstallLocation from the registry entry a previous install
+    wrote (see _write_registry_entry) — lets --silent update in place
+    instead of guessing a default path, and lets it tell an update apart
+    from a first-time silent install (no existing entry -> fresh install)."""
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY, 0, winreg.KEY_READ)
+        try:
+            val, _ = winreg.QueryValueEx(key, "InstallLocation")
+        finally:
+            winreg.CloseKey(key)
+        if val and Path(val).parent.exists():
+            return Path(val)
+    except Exception:
+        pass
+    return None
+
+
+def _create_shortcut(target: Path, link: Path, arguments: str = "", log=lambda m: None):
+    try:
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        sc = shell.CreateShortCut(str(link))
+        sc.Targetpath = str(target)
+        sc.WorkingDirectory = str(target.parent)
+        sc.IconLocation = str(target)
+        if arguments:
+            sc.Arguments = arguments
+        sc.save()
+    except Exception as e:
+        log(f"  Shortcut warning: {e}")
+
+
+def _write_registry_entry(install_dir: Path, log=lambda m: None):
+    try:
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, REG_KEY)
+        winreg.SetValueEx(key, "DisplayName",      0, winreg.REG_SZ, "SnapCap")
+        winreg.SetValueEx(key, "DisplayVersion",   0, winreg.REG_SZ, APP_VER)
+        winreg.SetValueEx(key, "Publisher",        0, winreg.REG_SZ, "SnapCap")
+        winreg.SetValueEx(key, "InstallLocation",  0, winreg.REG_SZ, str(install_dir))
+        winreg.SetValueEx(key, "UninstallString",  0, winreg.REG_SZ, str(install_dir / "SnapCap.exe") + " --uninstall")
+        winreg.SetValueEx(key, "DisplayIcon",      0, winreg.REG_SZ, str(install_dir / "SnapCap.exe"))
+        winreg.SetValueEx(key, "NoModify",         0, winreg.REG_DWORD, 1)
+        winreg.CloseKey(key)
+    except Exception as e:
+        log(f"  Registry warning: {e}")
+
+
+def _is_app_running() -> bool:
+    try:
+        out = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq SnapCap.exe"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        return "SnapCap.exe" in out.stdout
+    except Exception:
+        return False
+
+
+def _wait_for_app_exit(timeout_sec: float = 15.0) -> bool:
+    """Best-effort wait for a running SnapCap.exe to exit before an update
+    overwrites its files — the self-update caller (update_checker.py)
+    already quits the app before launching this installer, but this covers
+    the race where the process hasn't fully torn down yet, and any other
+    case (manual double-click of an old downloaded installer) where it's
+    still running. Returns True once it's gone (or was never running),
+    False if it's still running after the timeout — the caller proceeds
+    anyway rather than hanging forever unattended."""
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        if not _is_app_running():
+            return True
+        time.sleep(0.5)
+    return not _is_app_running()
+
+
+def run_silent_install(argv) -> int:
+    """
+    Unattended install, launched as `SnapCap_Setup.exe --silent [--relaunch]`
+    — used by update_checker.py's self-update flow (subprocess.Popen, not
+    waited on) and available for any other scripted/silent deployment.
+    Zero dialogs, zero user interaction:
+      - Installs to the existing install location (read from the registry
+        entry a prior install wrote) when this is an update, or the default
+        Program Files path for a first-time silent install.
+      - User settings/library live under %USERPROFILE%\\.snapcap, entirely
+        outside the install directory, so they're untouched either way —
+        nothing here needs to special-case "preserve user data".
+      - Desktop/Start Menu shortcuts are only (re)created on a first-time
+        install; an update doesn't re-litigate the user's shortcut choices.
+      - Writes the same uninstall registry entry the GUI wizard writes.
+      - `--relaunch` starts SnapCap.exe again once the copy is done.
+    Returns a real process exit code (0 = success) instead of calling
+    QApplication.exec()/sys.exit() with a GUI — nothing here ever imports
+    PyQt6, so this path works even on a machine where Qt fails to init
+    (e.g. no display session during some remote/scripted install).
+    """
+    log_lines = []
+    def _log(msg):
+        log_lines.append(msg)
+
+    def _finish(code: int) -> int:
+        try:
+            log_path = Path(os.environ.get("TEMP", str(Path.home()))) / "SnapCap_silent_install.log"
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"\\n--- silent install {time.strftime('%Y-%m-%d %H:%M:%S')} (exit {code}) ---\\n")
+                f.write("\\n".join(log_lines) + "\\n")
+        except Exception:
+            pass
+        return code
+
+    try:
+        if not _wait_for_app_exit():
+            _log("WARN: SnapCap.exe still appeared to be running after waiting — proceeding anyway")
+
+        existing_dir = _read_existing_install_dir()
+        is_update = existing_dir is not None
+        dest = existing_dir or (
+            Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "SnapCap"
+        )
+
+        src = _find_app_payload_dir()
+        if not src:
+            _log("ERROR: bundled app payload (SnapCap/) not found next to the installer")
+            return _finish(3)
+
+        _log(f"Installing to {dest} (update={is_update})")
+        try:
+            dest.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, dest, dirs_exist_ok=True)
+        except OSError as e:
+            # Disk full, permission denied (not elevated / UAC declined),
+            # target file locked by a still-running process, etc.
+            _log(f"ERROR: copy failed: {e}")
+            return _finish(2)
+        _log(f"Copied {sum(1 for _ in src.rglob('*'))} files")
+
+        if not is_update:
+            try:
+                _create_shortcut(
+                    dest / "SnapCap.exe",
+                    Path(os.environ["USERPROFILE"]) / "Desktop" / "SnapCap.lnk",
+                    log=_log,
+                )
+                sm_dir = (Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" /
+                          "Start Menu" / "Programs" / "SnapCap")
+                sm_dir.mkdir(parents=True, exist_ok=True)
+                _create_shortcut(dest / "SnapCap.exe", sm_dir / "SnapCap.lnk", log=_log)
+                _log("Shortcuts created (first-time install)")
+            except Exception as e:
+                _log(f"Shortcut step warning: {e}")
+        else:
+            _log("Update install — leaving existing shortcuts as-is")
+
+        _write_registry_entry(dest, log=_log)
+        _log("Registry entry written")
+
+        if "--relaunch" in argv:
+            try:
+                subprocess.Popen(
+                    [str(dest / "SnapCap.exe")],
+                    creationflags=subprocess.DETACHED_PROCESS,
+                )
+                _log("Relaunched SnapCap.exe")
+            except Exception as e:
+                _log(f"Relaunch failed (non-fatal): {e}")
+
+        _log("Silent install complete")
+        return _finish(0)
+    except Exception as e:
+        _log(f"FATAL: {e}")
+        return _finish(1)
+
+
+if "--silent" in sys.argv:
+    # Handled before importing PyQt6 at all — see run_silent_install's
+    # docstring for why that matters for unattended/scripted use.
+    sys.exit(run_silent_install(sys.argv))
+
+
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QStackedWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QCheckBox, QProgressBar,
@@ -42,12 +250,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QLinearGradient
-
-APP_NAME   = "SnapCap"
-APP_VER    = "__APP_VERSION__"
-PUBLISHER  = "SnapCap"
-EXE_NAME   = "SnapCap.exe"
-REG_KEY    = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SnapCap"
 
 DARK  = "#0f0e17"
 PANEL = "#16213e"
@@ -407,15 +609,7 @@ class InstallPage(BasePage):
     def _log_line(self, msg):
         self._log.append(msg)
     def _is_app_running(self) -> bool:
-        try:
-            out = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq SnapCap.exe"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
-            return "SnapCap.exe" in out.stdout
-        except Exception:
-            return False
+        return _is_app_running()
     def _ensure_app_not_running(self) -> bool:
         """Blocks (with a retry prompt) until SnapCap isn't running, or the
         user cancels. Prevents overwriting a locked EXE mid-install/update."""
@@ -506,7 +700,7 @@ class InstallWorker(QThread):
             # over an existing install overwrites in place instead of
             # failing because the destination already exists.
             self.status.emit("Copying SnapCap files…")
-            src = self._find_app_dir()
+            src = _find_app_payload_dir()
             if src and src.exists():
                 shutil.copytree(src, dest, dirs_exist_ok=True)
                 self.log.emit(f"✓ Copied {src.name}/ ({sum(1 for _ in src.rglob('*'))} files)")
@@ -558,49 +752,11 @@ class InstallWorker(QThread):
             self.status.emit(f"Error: {e}")
             self.finished.emit()
 
-    def _find_app_dir(self) -> Path:
-        # --onedir build (2026-09-15, see CHANGELOG 1.3.0): the payload
-        # bundled into the installer is now the whole SnapCap/ folder
-        # (SnapCap.exe + _internal/), not a single exe — mirrors what the
-        # PyInstaller build itself produces, so nothing needs re-flattening.
-        here = Path(sys.executable).parent
-        candidates = [
-            here / "SnapCap",
-            here.parent / "SnapCap",
-            Path(sys._MEIPASS) / "SnapCap" if hasattr(sys, "_MEIPASS") else None,
-        ]
-        for c in candidates:
-            if c and (c / "SnapCap.exe").exists():
-                return c
-        return None
-
     def _create_shortcut(self, target: Path, link: Path, arguments: str = ""):
-        try:
-            import win32com.client
-            shell = win32com.client.Dispatch("WScript.Shell")
-            sc = shell.CreateShortCut(str(link))
-            sc.Targetpath = str(target)
-            sc.WorkingDirectory = str(target.parent)
-            sc.IconLocation = str(target)
-            if arguments:
-                sc.Arguments = arguments
-            sc.save()
-        except Exception as e:
-            self.log.emit(f"  Shortcut warning: {e}")
+        _create_shortcut(target, link, arguments, log=self.log.emit)
 
     def _write_registry(self, install_dir: Path):
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SnapCap")
-            winreg.SetValueEx(key, "DisplayName",      0, winreg.REG_SZ, "SnapCap")
-            winreg.SetValueEx(key, "DisplayVersion",   0, winreg.REG_SZ, APP_VER)
-            winreg.SetValueEx(key, "Publisher",        0, winreg.REG_SZ, "SnapCap")
-            winreg.SetValueEx(key, "InstallLocation",  0, winreg.REG_SZ, str(install_dir))
-            winreg.SetValueEx(key, "UninstallString",  0, winreg.REG_SZ, str(install_dir / "SnapCap.exe") + " --uninstall")
-            winreg.SetValueEx(key, "DisplayIcon",      0, winreg.REG_SZ, str(install_dir / "SnapCap.exe"))
-            winreg.SetValueEx(key, "NoModify",         0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(key)
-        except Exception as e:
-            self.log.emit(f"  Registry warning: {e}")
+        _write_registry_entry(install_dir, log=self.log.emit)
 
 # ── Wizard (QStackedWidget-based — see BasePage note above) ───────────────────
 class SetupWizard(QDialog):

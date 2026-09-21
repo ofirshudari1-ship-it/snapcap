@@ -96,6 +96,11 @@ DEFAULT_CONFIG = {
     # Startup Apps settings instead of through SnapCap.
     "skip_splash_on_autostart": True,  # when launched via the Run-key/startup-folder entry (--autostart flag), skip the ~1-2s splash screen for a quieter boot
     "show_startup_notification": True, # the "Running in the system tray" tray balloon shown on every non-first launch — can be silenced for autostart
+    # 2026-09-21 self-update pass — opt-in, default OFF: when True, a detected
+    # GitHub release is downloaded and installed silently in the background
+    # instead of just showing the "update available" tray notification (see
+    # update_checker.perform_self_update / start_background_autoupdate).
+    "auto_update": False,
 }
 
 

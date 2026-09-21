@@ -197,6 +197,7 @@ class _Bridge(QObject):
     trigger_library    = pyqtSignal()
     trigger_text_ocr   = pyqtSignal()
     show_update_notif  = pyqtSignal(str, str)
+    update_launched    = pyqtSignal(str, str)
 
 
 # ── Main application controller ────────────────────────────────────────────────
@@ -219,6 +220,7 @@ class SnapCapApp:
         self._bridge.trigger_library.connect(self._open_library)
         self._bridge.trigger_text_ocr.connect(self._capture_text_ocr)
         self._bridge.show_update_notif.connect(self._notify_update)
+        self._bridge.update_launched.connect(self._on_update_launched)
 
         self._setup_tray()
         self._register_hotkeys()
@@ -228,10 +230,22 @@ class SnapCapApp:
             QTimer.singleShot(400, self._run_onboarding)
 
         # ── Background update check (GitHub Releases, a few seconds after launch) ──
+        # Opt-in auto-update (Settings -> "Automatically download and install
+        # updates") downloads + silently installs and only falls back to the
+        # notify-only path if something about that fails; default (off)
+        # behavior is unchanged from before.
         if self._conf.get("check_updates", True):
-            update_checker.start_background_check(
-                APP_VERSION, self._bridge.show_update_notif.emit, delay=5.0,
-            )
+            if self._conf.get("auto_update", False):
+                update_checker.start_background_autoupdate(
+                    APP_VERSION,
+                    self._bridge.update_launched.emit,
+                    self._bridge.show_update_notif.emit,
+                    delay=5.0,
+                )
+            else:
+                update_checker.start_background_check(
+                    APP_VERSION, self._bridge.show_update_notif.emit, delay=5.0,
+                )
 
     # ── Onboarding ─────────────────────────────────────────────────────────────
     def _run_onboarding(self):
@@ -251,6 +265,31 @@ class SnapCapApp:
             t("update_available_msg", lang, version=latest),
             QSystemTrayIcon.MessageIcon.Information, 8000,
         )
+
+    def _on_update_launched(self, version: str, installer_path: str):
+        # The silent installer has already been launched (detached) and is
+        # waiting for this process to exit before it overwrites the install
+        # directory. Shut down cleanly instead of just calling quit(), so a
+        # global hotkey doesn't stay registered against a process that's
+        # about to disappear mid-capture.
+        log.info("Auto-update: silent installer launched for v%s (%s) — shutting down", version, installer_path)
+        self._quit_for_update()
+
+    def _quit_for_update(self):
+        """Clean shutdown ahead of a silent-install overwrite: unhook global
+        hotkeys and hide the tray icon first (mirrors what a normal process
+        exit does via the OS, but proactively — we know exactly why we're
+        quitting), then quit the Qt event loop."""
+        try:
+            import keyboard
+            keyboard.unhook_all()
+        except Exception:
+            pass
+        try:
+            self.tray.hide()
+        except Exception:
+            pass
+        self.app.quit()
 
     def _on_tray_message_clicked(self):
         # Clicking the balloon opens the release page — but only if the last
@@ -576,6 +615,11 @@ class SnapCapApp:
         dlg.exec()
         # Reload config in case user changed hotkeys / theme
         self._conf = cfg.load()
+        # "Update Now" (Settings -> Advanced) already launched the silent
+        # installer synchronously before the dialog closed — same clean
+        # shutdown path as the automatic background flow.
+        if getattr(dlg, "update_launched", False):
+            self._quit_for_update()
 
     def _show_about(self):
         msg = QMessageBox()

@@ -124,6 +124,12 @@ STRINGS = {
         "grp_startup": "Startup",
         "cb_skip_splash_autostart": "Skip splash screen when launched at Windows startup",
         "cb_show_startup_notification": "Show a tray notification each time SnapCap starts",
+        # Settings — 2026-09-21 self-update pass
+        "cb_auto_update": "Automatically download and install updates",
+        "btn_update_now": "Update Now",
+        "update_launched_msg": "Downloading and installing v{version}… SnapCap will restart automatically.",
+        "update_auto_failed_msg": "Version {version} is available, but the automatic update couldn't complete. Opening the release page instead.",
+        "update_check_failed_msg": "Couldn't check for updates. Please check your internet connection and try again.",
     },
     "he": {
         "app_name": "SnapCap",
@@ -230,6 +236,11 @@ STRINGS = {
         "grp_startup": "הפעלה",
         "cb_skip_splash_autostart": "דלג על מסך הפתיחה בעת הפעלה עם Windows",
         "cb_show_startup_notification": "הצג התראת מגש בכל הפעלה של SnapCap",
+        "cb_auto_update": "הורד והתקן עדכונים אוטומטית",
+        "btn_update_now": "עדכן עכשיו",
+        "update_launched_msg": "מוריד ומתקין גרסה {version}… SnapCap יופעל מחדש אוטומטית.",
+        "update_auto_failed_msg": "גרסה {version} זמינה, אך העדכון האוטומטי לא הושלם. פותח את דף ההורדה במקום.",
+        "update_check_failed_msg": "לא ניתן היה לבדוק עדכונים. בדוק את חיבור האינטרנט ונסה שוב.",
     },
 }
 

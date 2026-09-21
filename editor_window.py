@@ -1278,6 +1278,11 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self._conf = cfg.load()
         self._lang = current_language()
+        # Set True by _update_now() when it successfully launches the silent
+        # installer — main.py checks this after dlg.exec() to trigger a
+        # clean app shutdown (the installer is already running, detached,
+        # waiting for this process to exit).
+        self.update_launched = False
         apply_theme(self._conf.get("theme", "system"))
         self.setWindowTitle(t("settings_title", self._lang))
         self.setMinimumSize(500, 560)
@@ -1435,6 +1440,13 @@ class SettingsDialog(QDialog):
         self._startup_notif_cb.setChecked(self._conf.get("show_startup_notification", True))
         sl.addWidget(self._startup_notif_cb)
 
+        # Opt-in, default OFF: silently download + install updates instead of
+        # just showing the "update available" tray notification. See
+        # update_checker.perform_self_update / start_background_autoupdate.
+        self._auto_update_cb = QCheckBox(t("cb_auto_update", lang))
+        self._auto_update_cb.setChecked(self._conf.get("auto_update", False))
+        sl.addWidget(self._auto_update_cb)
+
         l.addWidget(startup_box)
 
         l.addStretch()
@@ -1501,8 +1513,11 @@ class SettingsDialog(QDialog):
 
         check_now_btn = QPushButton(t("btn_check_updates_now", lang))
         check_now_btn.clicked.connect(self._check_for_updates_now)
+        self._update_now_btn = QPushButton(t("btn_update_now", lang))
+        self._update_now_btn.clicked.connect(self._update_now)
         row = QHBoxLayout()
         row.addWidget(check_now_btn)
+        row.addWidget(self._update_now_btn)
         row.addStretch()
         l.addLayout(row)
 
@@ -1536,6 +1551,56 @@ class SettingsDialog(QDialog):
             QMessageBox.information(
                 self, t("update_available_title", self._lang),
                 t("update_check_latest_msg", self._lang, version=cfg.APP_VERSION),
+            )
+
+    def _update_now(self):
+        """One-click "Update Now" (Settings -> Advanced): runs the full
+        check -> download -> silent-install pipeline synchronously (the
+        user explicitly asked and is waiting, same as _check_for_updates_now
+        above). On success, the silent installer is already launched and
+        waiting for this process to exit — sets self.update_launched so
+        main.py shuts the app down cleanly after this dialog closes. On any
+        failure, falls back to exactly the manual-download messaging the
+        notify-only path already used."""
+        self._update_now_btn.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            result = update_checker.perform_self_update(cfg.APP_VERSION)
+        finally:
+            QApplication.restoreOverrideCursor()
+            self._update_now_btn.setEnabled(True)
+
+        status = result.get("status")
+        if status == "launched":
+            QMessageBox.information(
+                self, t("update_available_title", self._lang),
+                t("update_launched_msg", self._lang, version=result["version"]),
+            )
+            self.update_launched = True
+            self.accept()
+            return
+
+        if status == "no_update":
+            QMessageBox.information(
+                self, t("update_available_title", self._lang),
+                t("update_check_latest_msg", self._lang, version=cfg.APP_VERSION),
+            )
+            return
+
+        # status == "failed": network failure, no installer asset on the
+        # release, download didn't complete, or launching it failed (disk
+        # full, blocked by AV, etc). Fall back to the manual-download path.
+        info = result.get("info")
+        if info:
+            QMessageBox.warning(
+                self, t("update_available_title", self._lang),
+                t("update_auto_failed_msg", self._lang, version=info["version"]),
+            )
+            update_checker.open_release_page(info.get("url"))
+        else:
+            QMessageBox.warning(
+                self, t("update_available_title", self._lang),
+                t("update_check_failed_msg", self._lang),
             )
 
     def _is_startup(self) -> bool:
@@ -1607,6 +1672,7 @@ class SettingsDialog(QDialog):
         self._set_startup(self._startup_cb.isChecked())
         self._conf["skip_splash_on_autostart"] = self._skip_splash_cb.isChecked()
         self._conf["show_startup_notification"] = self._startup_notif_cb.isChecked()
+        self._conf["auto_update"] = self._auto_update_cb.isChecked()
         self._conf["save_dir"] = self._save_dir_edit.text()
         self._conf["image_format"] = self._fmt_combo.currentText()
         self._conf["auto_copy"] = self._auto_copy_cb.isChecked()

@@ -566,6 +566,274 @@ class TestNewConfigDefaults(unittest.TestCase):
         import config as cfg
         self.assertTrue(cfg.DEFAULT_CONFIG["show_startup_notification"])
 
+    def test_auto_update_defaults_false(self):
+        """Opt-in, default OFF per the task: auto-update must never turn
+        itself on for an existing/upgraded config."""
+        import config as cfg
+        self.assertFalse(cfg.DEFAULT_CONFIG["auto_update"])
+
+
+class TestSelfUpdateDownload(unittest.TestCase):
+    """update_checker.download_installer — streams a GitHub release asset
+    to a temp file and verifies it against the API-reported size. Mocks
+    urllib entirely so this never touches the network."""
+
+    def test_download_success_matches_expected_size(self):
+        import update_checker as uc
+
+        payload = b"x" * 1000
+
+        class _FakeResp:
+            headers = {"Content-Length": str(len(payload))}
+            def __init__(self):
+                self._buf = payload
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n=-1):
+                if not self._buf:
+                    return b""
+                chunk, self._buf = self._buf[:n], self._buf[n:]
+                return chunk
+
+        progress_calls = []
+        with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
+            path = uc.download_installer(
+                "https://example.com/SnapCap-Setup-9.9.9.exe",
+                expected_size=len(payload),
+                on_progress=lambda d, t: progress_calls.append((d, t)),
+            )
+        try:
+            self.assertIsNotNone(path)
+            self.assertTrue(path.exists())
+            self.assertEqual(path.stat().st_size, len(payload))
+            self.assertTrue(progress_calls)
+            self.assertEqual(progress_calls[-1][0], len(payload))
+        finally:
+            if path:
+                path.unlink(missing_ok=True)
+
+    def test_download_returns_none_on_size_mismatch(self):
+        """A truncated/interrupted download must not be handed off as if
+        it completed — this is the core integrity check."""
+        import update_checker as uc
+
+        class _FakeResp:
+            headers = {}
+            def __init__(self):
+                self._buf = b"short"
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n=-1):
+                chunk, self._buf = self._buf[:n], self._buf[n:]
+                return chunk
+
+        with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
+            path = uc.download_installer(
+                "https://example.com/SnapCap-Setup-9.9.9.exe", expected_size=99999,
+            )
+        self.assertIsNone(path)
+
+    def test_download_returns_none_on_network_failure(self):
+        import update_checker as uc
+
+        def _raise(*a, **k):
+            raise OSError("simulated: offline")
+
+        with unittest.mock.patch("urllib.request.urlopen", side_effect=_raise):
+            path = uc.download_installer("https://example.com/SnapCap-Setup-9.9.9.exe")
+        self.assertIsNone(path)
+
+    def test_find_installer_asset_picks_matching_exe(self):
+        import update_checker as uc
+        data = {
+            "assets": [
+                {"name": "Source code.zip", "browser_download_url": "https://x/src.zip", "size": 10},
+                {"name": "SnapCap-Setup-1.7.0.exe", "browser_download_url": "https://x/setup.exe", "size": 12345},
+            ]
+        }
+        asset = uc._find_installer_asset(data)
+        self.assertEqual(asset["url"], "https://x/setup.exe")
+        self.assertEqual(asset["size"], 12345)
+
+    def test_find_installer_asset_none_when_absent(self):
+        import update_checker as uc
+        self.assertIsNone(uc._find_installer_asset({"assets": []}))
+        self.assertIsNone(uc._find_installer_asset({}))
+
+    def test_check_for_update_includes_asset_info_when_present(self):
+        import json
+        import update_checker as uc
+
+        class _FakeResp:
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self):
+                return json.dumps({
+                    "tag_name": "v1.7.0",
+                    "html_url": "https://github.com/ofirshudari1-ship-it/snapcap/releases/tag/v1.7.0",
+                    "assets": [{
+                        "name": "SnapCap-Setup-1.7.0.exe",
+                        "browser_download_url": "https://github.com/.../SnapCap-Setup-1.7.0.exe",
+                        "size": 999,
+                    }],
+                }).encode("utf-8")
+
+        with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
+            result = uc.check_for_update("1.6.1")
+        self.assertEqual(result["asset_url"], "https://github.com/.../SnapCap-Setup-1.7.0.exe")
+        self.assertEqual(result["asset_size"], 999)
+
+
+class TestSilentLaunch(unittest.TestCase):
+    """update_checker.launch_silent_install — non-blocking Popen of the
+    downloaded installer with the --silent switch."""
+
+    def test_launch_passes_silent_and_relaunch_flags(self):
+        import update_checker as uc
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
+            fake_exe = Path(f.name)
+        try:
+            with unittest.mock.patch("subprocess.Popen") as mock_popen:
+                ok = uc.launch_silent_install(fake_exe, relaunch=True)
+            self.assertTrue(ok)
+            args = mock_popen.call_args[0][0]
+            self.assertIn("--silent", args)
+            self.assertIn("--relaunch", args)
+        finally:
+            fake_exe.unlink(missing_ok=True)
+
+    def test_launch_omits_relaunch_when_not_requested(self):
+        import update_checker as uc
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
+            fake_exe = Path(f.name)
+        try:
+            with unittest.mock.patch("subprocess.Popen") as mock_popen:
+                uc.launch_silent_install(fake_exe, relaunch=False)
+            args = mock_popen.call_args[0][0]
+            self.assertNotIn("--relaunch", args)
+        finally:
+            fake_exe.unlink(missing_ok=True)
+
+    def test_launch_returns_false_when_path_missing(self):
+        import update_checker as uc
+        ok = uc.launch_silent_install(Path("C:/definitely/not/a/real/SnapCap-Setup.exe"))
+        self.assertFalse(ok)
+
+    def test_launch_returns_false_when_popen_raises(self):
+        import update_checker as uc
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
+            fake_exe = Path(f.name)
+        try:
+            with unittest.mock.patch("subprocess.Popen", side_effect=OSError("blocked")):
+                ok = uc.launch_silent_install(fake_exe)
+            self.assertFalse(ok)
+        finally:
+            fake_exe.unlink(missing_ok=True)
+
+
+class TestSelfUpdatePipeline(unittest.TestCase):
+    """update_checker.perform_self_update — the full check -> download ->
+    launch pipeline, exercised with each stage mocked so every branch
+    (no update / no asset / download failure / launch failure / success)
+    is covered without any real network or subprocess activity."""
+
+    def test_no_update_available(self):
+        import update_checker as uc
+        with unittest.mock.patch.object(uc, "check_for_update", return_value=None):
+            result = uc.perform_self_update("1.6.1")
+        self.assertEqual(result, {"status": "no_update"})
+
+    def test_release_has_no_installer_asset(self):
+        import update_checker as uc
+        info = {"version": "1.7.0", "url": "https://x/releases/tag/v1.7.0"}
+        with unittest.mock.patch.object(uc, "check_for_update", return_value=info):
+            result = uc.perform_self_update("1.6.1")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["reason"], "no_asset")
+        self.assertEqual(result["info"], info)
+
+    def test_download_failure_falls_back_with_info(self):
+        import update_checker as uc
+        info = {"version": "1.7.0", "url": "https://x/tag/v1.7.0",
+                "asset_url": "https://x/setup.exe", "asset_size": 100}
+        with unittest.mock.patch.object(uc, "check_for_update", return_value=info), \
+             unittest.mock.patch.object(uc, "download_installer", return_value=None):
+            result = uc.perform_self_update("1.6.1")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["reason"], "download_failed")
+        self.assertEqual(result["info"], info)
+
+    def test_launch_failure_falls_back_with_info(self):
+        import update_checker as uc
+        info = {"version": "1.7.0", "url": "https://x/tag/v1.7.0",
+                "asset_url": "https://x/setup.exe", "asset_size": 100}
+        fake_path = Path("C:/temp/SnapCap-Setup-1.7.0.exe")
+        with unittest.mock.patch.object(uc, "check_for_update", return_value=info), \
+             unittest.mock.patch.object(uc, "download_installer", return_value=fake_path), \
+             unittest.mock.patch.object(uc, "launch_silent_install", return_value=False):
+            result = uc.perform_self_update("1.6.1")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["reason"], "launch_failed")
+
+    def test_full_success_reports_launched(self):
+        import update_checker as uc
+        info = {"version": "1.7.0", "url": "https://x/tag/v1.7.0",
+                "asset_url": "https://x/setup.exe", "asset_size": 100}
+        fake_path = Path("C:/temp/SnapCap-Setup-1.7.0.exe")
+        with unittest.mock.patch.object(uc, "check_for_update", return_value=info), \
+             unittest.mock.patch.object(uc, "download_installer", return_value=fake_path), \
+             unittest.mock.patch.object(uc, "launch_silent_install", return_value=True):
+            result = uc.perform_self_update("1.6.1")
+        self.assertEqual(result, {
+            "status": "launched",
+            "installer_path": str(fake_path),
+            "version": "1.7.0",
+        })
+
+
+class TestAutoUpdateQuitPath(unittest.TestCase):
+    """main.SnapCapApp's clean-shutdown path for auto-update: hotkeys get
+    unhooked and the tray icon hidden before quit(), so a silent install
+    overwriting the running exe never leaves a stale hotkey/tray-icon
+    registration behind."""
+
+    def test_quit_for_update_hides_tray_and_calls_quit(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
+        app = QApplication.instance() or QApplication(sys.argv)
+        import main as m
+
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap.app = unittest.mock.Mock()
+        snap.tray = QSystemTrayIcon()
+        snap.tray.show()
+        try:
+            m.SnapCapApp._quit_for_update(snap)
+            self.assertFalse(snap.tray.isVisible())
+            snap.app.quit.assert_called_once()
+        finally:
+            snap.tray.hide()
+            snap.tray.deleteLater()
+
+    def test_on_update_launched_delegates_to_quit_for_update(self):
+        import main as m
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap._quit_for_update = unittest.mock.Mock()
+        m.SnapCapApp._on_update_launched(snap, "1.7.0", "C:/temp/SnapCap-Setup-1.7.0.exe")
+        snap._quit_for_update.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
