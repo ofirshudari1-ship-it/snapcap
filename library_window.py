@@ -20,13 +20,33 @@ from PIL import Image
 import config as cfg
 import ai_engine as ai
 import share_manager as sm
+import editor_window as ew  # shared theme palette (dark/light/system) — see apply_theme()
 
 THUMB_SIZE = 180
-PANEL_BG = "#16213e"
-DARK_BG = "#1a1a2e"
-ACCENT2 = "#00d9a3"
-TEXT_FG = "#eaeaea"
-TOOL_BTN = "#1f3a6b"
+
+# Module-level color "constants" the rest of this file reads from — kept as
+# plain names (not a dict lookup) so the stylesheet f-strings below stay
+# simple, but refreshed from the shared editor_window palette in
+# _sync_theme() so the Library window matches whatever theme (dark/light/
+# system) the user picked in Settings, instead of always rendering dark
+# regardless of that setting.
+PANEL_BG = ew.PANEL_BG
+DARK_BG = ew.DARK_BG
+ACCENT2 = ew.ACCENT2
+TEXT_FG = ew.TEXT_FG
+TOOL_BTN = ew.TOOL_BTN
+
+
+def _sync_theme(theme_name: str):
+    """Pull the current theme's palette from editor_window so the Library
+    window's colors stay consistent with the Editor and Settings windows."""
+    global PANEL_BG, DARK_BG, ACCENT2, TEXT_FG, TOOL_BTN
+    ew.apply_theme(theme_name)
+    PANEL_BG = ew.PANEL_BG
+    DARK_BG = ew.DARK_BG
+    ACCENT2 = ew.ACCENT2
+    TEXT_FG = ew.TEXT_FG
+    TOOL_BTN = ew.TOOL_BTN
 
 
 def pil_to_qpixmap(img: Image.Image) -> QPixmap:
@@ -127,11 +147,40 @@ class LibraryWindow(QWidget):
         self._filtered_paths: List[str] = []
         self._cards: List[ThumbnailCard] = []
         self._selected_path: Optional[str] = None
+        self._grid_cols = 0
 
+        _sync_theme(self._conf.get("theme", "system"))
         self._apply_style()
         self._build_ui()
         self._refresh_files()
         QTimer.singleShot(1000, self._start_ocr_index)
+
+        # Recompute the grid's column count on resize — without this, the
+        # column count is fixed at whatever the window's width happened to
+        # be when the grid was last (re)built, so maximizing or widening the
+        # window after that leaves the thumbnails stuck in a narrow column
+        # with the rest of the space empty (and the reverse when shrinking).
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._relayout_grid)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        # Debounce: only relayout once the drag settles, so continuous
+        # window-resize dragging doesn't thrash the grid every pixel.
+        self._resize_timer.start(120)
+
+    def _relayout_grid(self):
+        """Re-flow the existing thumbnail cards into the grid at the current
+        width, without reloading/recreating them (cheap — just repositions)."""
+        if not self._cards:
+            return
+        cols = max(1, (self._scroll.width() - 20) // (THUMB_SIZE + 28))
+        if cols == self._grid_cols:
+            return
+        self._grid_cols = cols
+        for i, card in enumerate(self._cards):
+            self._grid.addWidget(card, i // cols, i % cols)
 
     def _apply_style(self):
         self.setStyleSheet(f"""
@@ -194,6 +243,11 @@ class LibraryWindow(QWidget):
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._scroll.setWidget(self._grid_container)
         left_layout.addWidget(self._scroll)
+
+        self._empty_state = QLabel("📭  No screenshots yet")
+        self._empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_state.setWordWrap(True)
+        self._empty_state.setStyleSheet("color: #777; font-size: 14px; padding: 60px 20px;")
 
         layout.addWidget(left, 1)
 
@@ -270,13 +324,27 @@ class LibraryWindow(QWidget):
         for card in self._cards:
             card.setParent(None)
         self._cards.clear()
+        if self._empty_state.parent():
+            self._grid.removeWidget(self._empty_state)
+            self._empty_state.setParent(None)
 
-        cols = max(1, (self._scroll.width() - 20) // (THUMB_SIZE + 28))
-        for i, path in enumerate(self._filtered_paths[:200]):  # limit for perf
-            card = ThumbnailCard(path)
-            card.clicked.connect(self._on_card_clicked)
-            self._grid.addWidget(card, i // cols, i % cols)
-            self._cards.append(card)
+        if not self._filtered_paths:
+            is_search = bool(self._search_box.text().strip())
+            self._empty_state.setText(
+                "🔍  No screenshots match your search"
+                if is_search else
+                "📭  No screenshots yet — capture one with Ctrl+Shift+S to see it here"
+            )
+            self._grid.addWidget(self._empty_state, 0, 0)
+            self._grid_cols = 0
+        else:
+            cols = max(1, (self._scroll.width() - 20) // (THUMB_SIZE + 28))
+            self._grid_cols = cols
+            for i, path in enumerate(self._filtered_paths[:200]):  # limit for perf
+                card = ThumbnailCard(path)
+                card.clicked.connect(self._on_card_clicked)
+                self._grid.addWidget(card, i // cols, i % cols)
+                self._cards.append(card)
 
         n = len(self._filtered_paths)
         total = len(self._all_paths)
