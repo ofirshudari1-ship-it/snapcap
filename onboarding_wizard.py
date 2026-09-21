@@ -33,14 +33,17 @@ _BASE_SS = f"""
         background: {_CARD}; color: {_TEXT}; border: 1px solid {_BORDER};
         border-radius: 6px; padding: 8px 12px; font-size: 13px;
     }}
-    QLineEdit:focus {{ border-color: {_ACCENT}; }}
+    QLineEdit:focus {{ border-color: {_ACCENT}; border-width: 2px; }}
     QCheckBox, QRadioButton {{ color: {_TEXT}; font-size: 13px; }}
     QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 4px;
                              border: 2px solid {_BORDER}; background: {_CARD}; }}
     QCheckBox::indicator:checked {{ background: {_ACCENT}; border-color: {_ACCENT}; }}
+    QCheckBox:focus, QRadioButton:focus {{ outline: none; }}
+    QCheckBox::indicator:focus, QRadioButton::indicator:focus {{ border-color: {_ACCENT2}; }}
     QRadioButton::indicator {{ width: 18px; height: 18px; border-radius: 9px;
                                 border: 2px solid {_BORDER}; background: {_CARD}; }}
     QRadioButton::indicator:checked {{ background: {_ACCENT}; border-color: {_ACCENT}; }}
+    QPushButton:focus {{ outline: none; border: 2px solid {_ACCENT2}; }}
 """
 
 def _btn(text: str, primary=True) -> QPushButton:
@@ -521,8 +524,23 @@ class OnboardingWizard(QDialog):
         self._back_btn.setVisible(self._page > 0)
         is_last = self._page == self._stack.count() - 1
         self._next_btn.setText(t("finish", self._lang) if is_last else t("next", self._lang))
+        # Progress dots previously signalled "current step" by color alone
+        # (accent vs muted) — invisible to colorblind users and not backed
+        # by any other cue. A bigger filled dot for the current step vs.
+        # smaller outline dots for the rest gives a shape/size cue too.
         for i, d in enumerate(self._dots):
-            d.setStyleSheet(f"color: {_ACCENT if i == self._page else _MUTED};")
+            if i == self._page:
+                d.setText("●")
+                d.setFont(QFont("Arial", 13))
+                d.setStyleSheet(f"color: {_ACCENT}; font-weight: bold;")
+            elif i < self._page:
+                d.setText("●")
+                d.setFont(QFont("Arial", 10))
+                d.setStyleSheet(f"color: {_MUTED};")
+            else:
+                d.setText("○")
+                d.setFont(QFont("Arial", 10))
+                d.setStyleSheet(f"color: {_MUTED};")
 
     def _rebuild_after_language_change(self):
         """Re-instantiate all pages after language switch, keep current step."""

@@ -609,6 +609,17 @@ class EditorWindow(QMainWindow):
 
         self.setWindowTitle("SnapCap — Editor")
         self.setMinimumSize(720, 480)
+        # RTL (§18.1) — mirrors which side the tool panel/options panel sit
+        # on and moves the tool-panel scrollbar to the leading (left-hand)
+        # edge in Hebrew, matching Windows' own RTL mirroring rules. This
+        # was never set here before, so the editor stayed LTR regardless of
+        # the app language (only SettingsDialog, below, handled it). Tool
+        # glyphs like the Arrow tool's "→" are plain Unicode text, not
+        # pixmaps, so Qt does not flip them — correct, since they're showing
+        # what the tool draws, not a navigation direction.
+        self.setLayoutDirection(
+            Qt.LayoutDirection.RightToLeft if is_rtl(current_language()) else Qt.LayoutDirection.LeftToRight
+        )
         self._apply_style()
         self._size_to_image(pil_image)
 
@@ -660,17 +671,22 @@ class EditorWindow(QMainWindow):
             }}
             QToolButton:hover {{ background: {TOOL_HOV}; }}
             QToolButton:checked {{ background: {ACCENT2}; color: #1a1a2e; }}
+            QToolButton:focus {{ outline: none; border: 2px solid {ACCENT2}; }}
             QPushButton {{
                 background: {TOOL_BTN}; border: none; border-radius: 10px;
                 padding: 7px 14px; color: {TEXT_FG};
             }}
             QPushButton:hover {{ background: {TOOL_HOV}; }}
+            QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 5px 12px; }}
             QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
             QPushButton#accent:hover {{ background: #00b386; }}
             QComboBox, QSpinBox {{
                 background: {PANEL_BG}; border: 1px solid {TOOL_BTN};
                 border-radius: 8px; padding: 4px 8px; color: {TEXT_FG};
             }}
+            QComboBox:focus, QSpinBox:focus {{ border: 2px solid {ACCENT2}; }}
+            QLineEdit:focus {{ border: 2px solid {ACCENT2}; }}
+            QCheckBox::indicator:focus {{ border: 2px solid {ACCENT2}; }}
             QLabel {{ color: {TEXT_FG}; }}
             QGroupBox {{
                 border: 1px solid {TOOL_BTN}; border-radius: 10px;
@@ -1296,6 +1312,7 @@ class SettingsDialog(QDialog):
                 background: {PANEL_BG}; color: {TEXT_FG}; border: 1px solid {TOOL_BTN};
                 border-radius: 8px; padding: 6px 10px;
             }}
+            QLineEdit:focus, QComboBox:focus {{ border: 2px solid {ACCENT2}; }}
             QCheckBox {{ color: {TEXT_FG}; }}
             QGroupBox {{
                 border: 1px solid {TOOL_BTN}; border-radius: 10px;
@@ -1312,6 +1329,7 @@ class SettingsDialog(QDialog):
                           border-radius: 9px; padding: 8px 18px; }}
             QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
             QPushButton:hover {{ background: {TOOL_HOV}; }}
+            QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 6px 16px; }}
         """)
         self._build()
 

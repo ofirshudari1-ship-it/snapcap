@@ -407,13 +407,25 @@ class SnapCapApp:
         sound on capture'). Uses the stdlib winsound module — no bundled
         audio asset, matching the rest of the app's zero-extra-dependency
         approach — off the Qt thread so its short blocking call can never
-        stutter the capture flow."""
+        stutter the capture flow.
+
+        Micro-interaction polish (§18.5): this used to be
+        winsound.MessageBeep(MB_OK) — the generic Windows "ding" used for
+        dialogs/errors. Fired every capture (often several times in a row
+        for scrolling/region captures), that reads as an alert rather than
+        confirmation, which is jarring. A quick two-tone high→low blip
+        (~70ms total) mimics an actual camera shutter click instead."""
         def _play():
             try:
                 import winsound
-                winsound.MessageBeep(winsound.MB_OK)
+                winsound.Beep(2800, 40)
+                winsound.Beep(1600, 30)
             except Exception:
-                pass
+                try:
+                    import winsound
+                    winsound.MessageBeep(winsound.MB_OK)
+                except Exception:
+                    pass
         threading.Thread(target=_play, daemon=True).start()
 
     # ── Post-capture pipeline ──────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import config as cfg
 import ai_engine as ai
 import share_manager as sm
 import editor_window as ew  # shared theme palette (dark/light/system) — see apply_theme()
+from i18n import t, is_rtl, current_language
 
 THUMB_SIZE = 180
 
@@ -66,8 +67,15 @@ class ThumbnailCard(QFrame):
         self.setStyleSheet(f"""
             QFrame {{ background: {PANEL_BG}; border-radius: 8px; border: 2px solid transparent; }}
             QFrame:hover {{ border-color: {ACCENT2}; }}
+            QFrame:focus {{ border-color: {ACCENT2}; border-width: 3px; }}
         """)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Keyboard accessibility: cards were mouse-only (no focus policy, no
+        # key handling) — Tab couldn't reach them and there was no way to
+        # select a screenshot without a mouse. StrongFocus + Enter/Space
+        # activation + the :focus border above closes that gap.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setToolTip(Path(path).name)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -106,8 +114,15 @@ class ThumbnailCard(QFrame):
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self.clicked.emit(self.path)
         super().mousePressEvent(e)
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self.clicked.emit(self.path)
+        else:
+            super().keyPressEvent(e)
 
 
 class OCRIndexWorker(QThread):
@@ -137,7 +152,15 @@ class LibraryWindow(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("SnapCap — Screenshot Library")
+        self._lang = current_language()
+        self.setWindowTitle(t("lib_window_title", self._lang))
+        # RTL — mirrors the grid/preview-panel layout and the toolbar reading
+        # order for Hebrew, matching what EditorWindow/SettingsDialog already
+        # do. Previously this window never set a layout direction at all, so
+        # it stayed LTR (and fully English) regardless of the app language.
+        self.setLayoutDirection(
+            Qt.LayoutDirection.RightToLeft if is_rtl(self._lang) else Qt.LayoutDirection.LeftToRight
+        )
         self.resize(1100, 700)
         self._conf = cfg.load()
         self._save_dir = Path(self._conf["save_dir"])
@@ -190,11 +213,14 @@ class LibraryWindow(QWidget):
                 padding: 6px 14px; color: {TEXT_FG};
             }}
             QPushButton:hover {{ background: #3b82f6; }}
+            QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 4px 12px; }}
             QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
             QLineEdit {{ background: {PANEL_BG}; border: 1px solid {TOOL_BTN}; border-radius: 6px; padding: 6px 10px; color: {TEXT_FG}; }}
+            QLineEdit:focus {{ border: 2px solid {ACCENT2}; }}
             QScrollArea {{ border: none; }}
             QFrame#card {{ background: {PANEL_BG}; border-radius: 8px; }}
             QComboBox {{ background: {PANEL_BG}; border: 1px solid {TOOL_BTN}; border-radius: 4px; padding: 4px 8px; color: {TEXT_FG}; }}
+            QComboBox:focus {{ border: 2px solid {ACCENT2}; }}
         """)
 
     def _build_ui(self):
@@ -211,20 +237,23 @@ class LibraryWindow(QWidget):
         # Toolbar
         toolbar = QHBoxLayout()
         self._search_box = QLineEdit()
-        self._search_box.setPlaceholderText("🔍  Search screenshots… (searches file names and OCR text)")
+        self._search_box.setPlaceholderText(t("lib_search_placeholder", self._lang))
         self._search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self._search_box)
 
         sort_cb = QComboBox()
-        sort_cb.addItems(["Newest first", "Oldest first", "Largest first", "A–Z"])
+        sort_cb.addItems([
+            t("lib_sort_newest", self._lang), t("lib_sort_oldest", self._lang),
+            t("lib_sort_largest", self._lang), t("lib_sort_az", self._lang),
+        ])
         sort_cb.currentIndexChanged.connect(lambda i: self._sort_by(i))
         toolbar.addWidget(sort_cb)
 
-        refresh_btn = QPushButton("↺ Refresh")
+        refresh_btn = QPushButton(t("lib_refresh", self._lang))
         refresh_btn.clicked.connect(self._refresh_files)
         toolbar.addWidget(refresh_btn)
 
-        open_folder_btn = QPushButton("📂 Open Folder")
+        open_folder_btn = QPushButton(t("lib_open_folder", self._lang))
         open_folder_btn.clicked.connect(self._open_folder)
         toolbar.addWidget(open_folder_btn)
 
@@ -233,6 +262,13 @@ class LibraryWindow(QWidget):
         self._count_label = QLabel()
         self._count_label.setStyleSheet("color: #888; font-size: 11px;")
         left_layout.addWidget(self._count_label)
+
+        # Gamification (§18.4) — a real, already-collected stat ("captured
+        # this month"), not an invented points/badge system. Utility tools
+        # for a single user read best as visible progress, not competition.
+        self._stat_label = QLabel()
+        self._stat_label.setStyleSheet(f"color: {ACCENT2}; font-size: 11px; font-weight: bold;")
+        left_layout.addWidget(self._stat_label)
 
         # Grid
         self._scroll = QScrollArea()
@@ -244,7 +280,7 @@ class LibraryWindow(QWidget):
         self._scroll.setWidget(self._grid_container)
         left_layout.addWidget(self._scroll)
 
-        self._empty_state = QLabel("📭  No screenshots yet")
+        self._empty_state = QLabel(t("lib_empty_none", self._lang))
         self._empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_state.setWordWrap(True)
         self._empty_state.setStyleSheet("color: #777; font-size: 14px; padding: 60px 20px;")
@@ -259,34 +295,34 @@ class LibraryWindow(QWidget):
         right_layout.setContentsMargins(12, 12, 12, 12)
         right_layout.setSpacing(8)
 
-        right_layout.addWidget(QLabel("Preview"))
+        right_layout.addWidget(QLabel(t("lib_preview", self._lang)))
         self._preview_label = QLabel()
         self._preview_label.setFixedSize(236, 160)
         self._preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_label.setStyleSheet("background: #0d1117; border-radius: 6px;")
         right_layout.addWidget(self._preview_label)
 
-        self._info_label = QLabel("Select a screenshot")
+        self._info_label = QLabel(t("lib_select_screenshot", self._lang))
         self._info_label.setWordWrap(True)
         self._info_label.setStyleSheet("color: #aaa; font-size: 11px;")
         right_layout.addWidget(self._info_label)
 
-        for label, fn in [
-            ("✏  Open in Editor", self._open_editor),
-            ("📋  Copy to Clipboard", self._copy_selected),
-            ("📤  Upload to Imgur", self._upload_selected),
-            ("🔍  OCR Extract Text", self._ocr_selected),
-            ("🗑  Delete", self._delete_selected),
+        for label, fn, is_delete in [
+            (t("lib_open_editor", self._lang), self._open_editor, False),
+            (t("lib_copy_clipboard", self._lang), self._copy_selected, False),
+            (t("lib_upload_imgur", self._lang), self._upload_selected, False),
+            (t("lib_ocr_extract", self._lang), self._ocr_selected, False),
+            (t("lib_delete", self._lang), self._delete_selected, True),
         ]:
             btn = QPushButton(label)
-            if "Delete" in label:
+            if is_delete:
                 btn.setStyleSheet(f"color: {ACCENT2};")
             btn.clicked.connect(fn)
             right_layout.addWidget(btn)
 
         right_layout.addStretch()
 
-        self._ocr_status = QLabel("⏳ Building search index…")
+        self._ocr_status = QLabel(t("lib_building_index", self._lang))
         self._ocr_status.setStyleSheet("color: #888; font-size: 10px;")
         self._ocr_status.setWordWrap(True)
         right_layout.addWidget(self._ocr_status)
@@ -317,7 +353,24 @@ class LibraryWindow(QWidget):
             key=os.path.getmtime, reverse=True,
         )
         self._filtered_paths = list(self._all_paths)
+        self._update_stat_label()
         self._render_grid()
+
+    def _update_stat_label(self):
+        """Gamification (§18.4): a real 'captured this month' count from the
+        files already on disk — no invented points/badges, just visible
+        progress on a stat the user already generates by using the tool."""
+        now = datetime.datetime.now()
+        this_month = sum(
+            1 for p in self._all_paths
+            if datetime.datetime.fromtimestamp(os.path.getmtime(p)).year == now.year
+            and datetime.datetime.fromtimestamp(os.path.getmtime(p)).month == now.month
+        )
+        if this_month > 0:
+            self._stat_label.setText(t("lib_stat_month_fmt", self._lang, count=this_month))
+            self._stat_label.setVisible(True)
+        else:
+            self._stat_label.setVisible(False)
 
     def _render_grid(self):
         # Clear existing
@@ -331,9 +384,9 @@ class LibraryWindow(QWidget):
         if not self._filtered_paths:
             is_search = bool(self._search_box.text().strip())
             self._empty_state.setText(
-                "🔍  No screenshots match your search"
+                t("lib_empty_search", self._lang)
                 if is_search else
-                "📭  No screenshots yet — capture one with Ctrl+Shift+S to see it here"
+                t("lib_empty_none", self._lang)
             )
             self._grid.addWidget(self._empty_state, 0, 0)
             self._grid_cols = 0
@@ -349,7 +402,9 @@ class LibraryWindow(QWidget):
         n = len(self._filtered_paths)
         total = len(self._all_paths)
         self._count_label.setText(
-            f"  {n} screenshot(s)" + (f" (filtered from {total})" if n != total else "")
+            t("lib_count_filtered_fmt", self._lang, n=n, total=total)
+            if n != total else
+            t("lib_count_fmt", self._lang, n=n)
         )
 
     def _on_search(self, query: str):
@@ -398,7 +453,7 @@ class LibraryWindow(QWidget):
 
     def _require_selection(self) -> Optional[str]:
         if not self._selected_path:
-            QMessageBox.information(self, "SnapCap", "Select a screenshot first.")
+            QMessageBox.information(self, "SnapCap", t("lib_select_first_msg", self._lang))
         return self._selected_path
 
     def _open_editor(self):
@@ -418,16 +473,16 @@ class LibraryWindow(QWidget):
             return
         cid = self._conf.get("upload_targets", {}).get("imgur", {}).get("client_id", "")
         if not cid:
-            QMessageBox.warning(self, "Imgur", "Set Imgur Client ID in Settings.")
+            QMessageBox.warning(self, "Imgur", t("lib_imgur_set_key_msg", self._lang))
             return
         img = Image.open(p)
         url = sm.upload_imgur(img, cid)
         if url:
             import pyperclip
             pyperclip.copy(url)
-            QMessageBox.information(self, "Imgur", f"Uploaded!\n{url}")
+            QMessageBox.information(self, "Imgur", t("lib_uploaded_fmt", self._lang, url=url))
         else:
-            QMessageBox.critical(self, "Error", "Upload failed.")
+            QMessageBox.critical(self, t("error", self._lang), t("lib_upload_failed_msg", self._lang))
 
     def _ocr_selected(self):
         p = self._require_selection()
@@ -437,14 +492,15 @@ class LibraryWindow(QWidget):
         text = ai.ocr_extract_text(img)
         from PyQt6.QtWidgets import QDialog, QTextEdit
         dlg = QDialog(self)
-        dlg.setWindowTitle("OCR Result")
+        dlg.setWindowTitle(t("lib_ocr_result_title", self._lang))
+        dlg.setLayoutDirection(self.layoutDirection())
         dlg.resize(500, 400)
         dlg.setStyleSheet(self.styleSheet())
         vl = QVBoxLayout(dlg)
         te = QTextEdit()
         te.setPlainText(text)
         vl.addWidget(te)
-        close = QPushButton("Close")
+        close = QPushButton(t("close", self._lang))
         close.clicked.connect(dlg.accept)
         vl.addWidget(close)
         dlg.exec()
@@ -454,7 +510,8 @@ class LibraryWindow(QWidget):
         if not p:
             return
         reply = QMessageBox.question(
-            self, "Delete", f"Delete {Path(p).name}?",
+            self, t("lib_delete_title", self._lang),
+            t("lib_delete_confirm_fmt", self._lang, filename=Path(p).name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
@@ -465,10 +522,10 @@ class LibraryWindow(QWidget):
                     self._save_index()
                 self._selected_path = None
                 self._preview_label.clear()
-                self._info_label.setText("Select a screenshot")
+                self._info_label.setText(t("lib_select_screenshot", self._lang))
                 self._refresh_files()
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self, t("error", self._lang), str(e))
 
     def _open_folder(self):
         sm.open_in_explorer(str(self._save_dir / "placeholder"))
@@ -476,7 +533,7 @@ class LibraryWindow(QWidget):
     def _start_ocr_index(self):
         missing = [p for p in self._all_paths if p not in self._ocr_index]
         if not missing:
-            self._ocr_status.setText(f"✅ Search index: {len(self._ocr_index)} images")
+            self._ocr_status.setText(t("lib_index_ready_fmt", self._lang, count=len(self._ocr_index)))
             return
         self._worker = OCRIndexWorker(missing, self._ocr_index)
         self._worker.progress.connect(self._on_ocr_progress)
@@ -487,8 +544,8 @@ class LibraryWindow(QWidget):
         self._ocr_index[path] = text
         indexed = len(self._ocr_index)
         total = len(self._all_paths)
-        self._ocr_status.setText(f"🔍 Indexing {indexed}/{total}…")
+        self._ocr_status.setText(t("lib_indexing_fmt", self._lang, indexed=indexed, total=total))
 
     def _on_ocr_done(self):
         self._save_index()
-        self._ocr_status.setText(f"✅ Index complete: {len(self._ocr_index)} images searchable")
+        self._ocr_status.setText(t("lib_index_complete_fmt", self._lang, count=len(self._ocr_index)))
