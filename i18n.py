@@ -130,6 +130,13 @@ STRINGS = {
         "update_launched_msg": "Downloading and installing v{version}… SnapCap will restart automatically.",
         "update_auto_failed_msg": "Version {version} is available, but the automatic update couldn't complete. Opening the release page instead.",
         "update_check_failed_msg": "Couldn't check for updates. Please check your internet connection and try again.",
+        # Settings — 2026-09-22 desktop widget pass
+        "grp_widget": "Desktop Widget",
+        "cb_show_desktop_widget": "Show desktop widget",
+        "widget_capture_now": "📷  Capture now",
+        "widget_open_library": "📚  Open Library",
+        "widget_stat_zero": "📸 No captures yet this month",
+        "widget_tooltip": "Drag to move · click × to hide",
         # Library window — 2026-09-21 i18n/RTL/accessibility pass
         "lib_window_title": "SnapCap — Screenshot Library",
         "lib_search_placeholder": "🔍  Search screenshots… (searches file names and OCR text)",
@@ -275,6 +282,13 @@ STRINGS = {
         "update_launched_msg": "מוריד ומתקין גרסה {version}… SnapCap יופעל מחדש אוטומטית.",
         "update_auto_failed_msg": "גרסה {version} זמינה, אך העדכון האוטומטי לא הושלם. פותח את דף ההורדה במקום.",
         "update_check_failed_msg": "לא ניתן היה לבדוק עדכונים. בדוק את חיבור האינטרנט ונסה שוב.",
+        # Settings — 2026-09-22 desktop widget pass
+        "grp_widget": "ווידג'ט שולחן עבודה",
+        "cb_show_desktop_widget": "הצג ווידג'ט שולחן עבודה",
+        "widget_capture_now": "📷  צלם עכשיו",
+        "widget_open_library": "📚  פתח ספרייה",
+        "widget_stat_zero": "📸 עוד לא צולם החודש",
+        "widget_tooltip": "גרור להזזה · לחץ על × להסתרה",
         # Library window — 2026-09-21 i18n/RTL/accessibility pass
         "lib_window_title": "SnapCap — ספריית צילומים",
         "lib_search_placeholder": "🔍  חיפוש צילומים… (מחפש בשמות קבצים ובטקסט OCR)",

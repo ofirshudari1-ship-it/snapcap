@@ -1467,6 +1467,16 @@ class SettingsDialog(QDialog):
 
         l.addWidget(startup_box)
 
+        # ── Desktop widget ────────────────────────────────────────────────────
+        widget_box = QGroupBox(t("grp_widget", lang))
+        wl = QVBoxLayout(widget_box)
+
+        self._show_widget_cb = QCheckBox(t("cb_show_desktop_widget", lang))
+        self._show_widget_cb.setChecked(self._conf.get("show_desktop_widget", True))
+        wl.addWidget(self._show_widget_cb)
+
+        l.addWidget(widget_box)
+
         l.addStretch()
         return w
 
@@ -1691,6 +1701,7 @@ class SettingsDialog(QDialog):
         self._conf["skip_splash_on_autostart"] = self._skip_splash_cb.isChecked()
         self._conf["show_startup_notification"] = self._startup_notif_cb.isChecked()
         self._conf["auto_update"] = self._auto_update_cb.isChecked()
+        self._conf["show_desktop_widget"] = self._show_widget_cb.isChecked()
         self._conf["save_dir"] = self._save_dir_edit.text()
         self._conf["image_format"] = self._fmt_combo.currentText()
         self._conf["auto_copy"] = self._auto_copy_cb.isChecked()

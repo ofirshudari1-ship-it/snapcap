@@ -835,5 +835,268 @@ class TestAutoUpdateQuitPath(unittest.TestCase):
         snap._quit_for_update.assert_called_once()
 
 
+class TestDesktopWidgetConfig(unittest.TestCase):
+    """2026-09-22 desktop widget pass — config defaults and translations."""
+
+    def test_show_desktop_widget_defaults_true(self):
+        import config as cfg
+        self.assertTrue(cfg.DEFAULT_CONFIG["show_desktop_widget"])
+
+    def test_widget_pos_defaults_none(self):
+        import config as cfg
+        self.assertIsNone(cfg.DEFAULT_CONFIG["widget_pos"])
+
+    def test_widget_keys_translated_both_languages(self):
+        from i18n import t
+        for key in ("grp_widget", "cb_show_desktop_widget", "widget_capture_now",
+                    "widget_open_library", "widget_stat_zero", "widget_tooltip"):
+            self.assertTrue(t(key, "en"))
+            self.assertTrue(t(key, "he"))
+            self.assertNotEqual(t(key, "en"), key)
+            self.assertNotEqual(t(key, "he"), key)
+
+
+class TestDesktopWidgetStat(unittest.TestCase):
+    """library_window.count_captured_this_month — the single shared
+    computation used by both the Library toolbar stat and the desktop
+    widget, so they can never disagree or duplicate the mtime scan."""
+
+    def test_counts_only_files_from_current_month(self):
+        import os
+        import tempfile
+        import datetime
+        import library_window as lw
+
+        with tempfile.TemporaryDirectory() as d:
+            now_path = Path(d) / "now.png"
+            now_path.write_bytes(b"x")
+
+            old_path = Path(d) / "old.png"
+            old_path.write_bytes(b"x")
+            old_time = datetime.datetime.now() - datetime.timedelta(days=400)
+            old_ts = old_time.timestamp()
+            os.utime(old_path, (old_ts, old_ts))
+
+            non_image = Path(d) / "notes.txt"
+            non_image.write_bytes(b"x")
+
+            self.assertEqual(lw.count_captured_this_month(d), 1)
+
+    def test_returns_zero_for_missing_directory(self):
+        import library_window as lw
+        self.assertEqual(lw.count_captured_this_month("C:/definitely/not/a/real/path/xyz"), 0)
+
+    def test_library_window_reuses_shared_stat_function(self):
+        """The Library toolbar's own stat label must be driven by the same
+        shared function, not a second independent mtime scan (regression
+        guard for the 2026-09-22 refactor that extracted it)."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import library_window as lw
+
+        import tempfile
+        from PyQt6.QtWidgets import QLabel
+
+        win = lw.LibraryWindow.__new__(lw.LibraryWindow)
+        win._save_dir = Path(tempfile.gettempdir())
+        win._lang = "en"
+        win._stat_label = QLabel()
+        with unittest.mock.patch("library_window.count_captured_this_month", return_value=3) as mocked:
+            lw.LibraryWindow._update_stat_label(win)
+        mocked.assert_called_once_with(win._save_dir)
+        self.assertTrue(win._stat_label.isVisible())
+
+
+class TestDesktopWidgetWiring(unittest.TestCase):
+    """widget_window.WidgetWindow — the "Capture now" / "Open Library"
+    buttons and the close control, plus main.SnapCapApp's setup/toggle
+    logic. Capture is mocked throughout: these tests confirm the widget
+    calls the exact callables it was given (the same bridge signals the
+    global hotkey uses), never that a real screenshot is taken."""
+
+    def _make_widget(self, on_capture=None, on_open_library=None):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        # Must keep a reference to the QApplication instance (matching every
+        # other test in this file, e.g. TestPinWindow) — an unassigned
+        # `QApplication.instance() or QApplication(sys.argv)` expression lets
+        # the newly-constructed QApplication get garbage-collected as soon as
+        # the statement finishes, which then takes every widget built
+        # against it down with it (surfaces as a confusing "wrapped C/C++
+        # object ... has been deleted" RuntimeError on first use afterwards).
+        self._app = QApplication.instance() or QApplication(sys.argv)
+        from widget_window import WidgetWindow
+        return WidgetWindow(
+            on_capture=on_capture or unittest.mock.Mock(),
+            on_open_library=on_open_library or unittest.mock.Mock(),
+        )
+
+    def test_capture_now_calls_the_injected_capture_function(self):
+        on_capture = unittest.mock.Mock()
+        w = self._make_widget(on_capture=on_capture)
+        try:
+            w._capture_now()
+            on_capture.assert_called_once()
+        finally:
+            w.close()
+
+    def test_open_library_calls_the_injected_library_function(self):
+        on_open_library = unittest.mock.Mock()
+        w = self._make_widget(on_open_library=on_open_library)
+        try:
+            w._open_library()
+            on_open_library.assert_called_once()
+        finally:
+            w.close()
+
+    def test_close_button_persists_opt_out_and_hides(self):
+        import config as cfg
+        conf = cfg.load()
+        original = conf.get("show_desktop_widget", True)
+        w = self._make_widget()
+        try:
+            w.show()
+            w._on_close_clicked()
+            self.assertFalse(w.isVisible())
+            self.assertFalse(cfg.load()["show_desktop_widget"])
+        finally:
+            w.close()
+            conf = cfg.load()
+            conf["show_desktop_widget"] = original
+            cfg.save(conf)
+
+    def test_position_round_trips_through_config(self):
+        import config as cfg
+        conf = cfg.load()
+        original_pos = conf.get("widget_pos")
+        w = self._make_widget()
+        try:
+            w.move(123, 456)
+            w._save_position()
+            saved = cfg.load()["widget_pos"]
+            self.assertEqual(saved, {"x": 123, "y": 456})
+
+            w2 = self._make_widget()
+            try:
+                self.assertEqual((w2.x(), w2.y()), (123, 456))
+            finally:
+                w2.close()
+        finally:
+            w.close()
+            conf = cfg.load()
+            conf["widget_pos"] = original_pos
+            cfg.save(conf)
+
+    def test_refresh_stat_uses_shared_count_function(self):
+        w = self._make_widget()
+        try:
+            with unittest.mock.patch(
+                "widget_window.count_captured_this_month", return_value=7
+            ) as mocked:
+                w.refresh_stat()
+            mocked.assert_called_once()
+            self.assertIn("7", w._stat_label.text())
+        finally:
+            w.close()
+
+    def test_refresh_stat_shows_zero_message_when_no_captures(self):
+        w = self._make_widget()
+        try:
+            with unittest.mock.patch(
+                "widget_window.count_captured_this_month", return_value=0
+            ):
+                w.refresh_stat()
+            from i18n import t
+            self.assertEqual(w._stat_label.text(), t("widget_stat_zero", w._lang))
+        finally:
+            w.close()
+
+
+class TestDesktopWidgetAppLifecycle(unittest.TestCase):
+    """main.SnapCapApp._setup_desktop_widget — creates the widget once and
+    shows/hides it on every subsequent call based on the config flag,
+    matching how Settings → Desktop Widget is expected to take effect
+    immediately without restarting the app."""
+
+    def _snap(self, show_desktop_widget: bool):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        # See TestDesktopWidgetWiring._make_widget for why this reference
+        # must be kept, not discarded as a bare expression statement.
+        self._app = QApplication.instance() or QApplication(sys.argv)
+        import main as m
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap._conf = {"show_desktop_widget": show_desktop_widget}
+        snap._bridge = m._Bridge()
+        snap._widget_window = None
+        return snap, m
+
+    def test_creates_and_shows_widget_when_enabled(self):
+        snap, m = self._snap(True)
+        try:
+            m.SnapCapApp._setup_desktop_widget(snap)
+            self.assertIsNotNone(snap._widget_window)
+            self.assertTrue(snap._widget_window.isVisible())
+        finally:
+            if snap._widget_window is not None:
+                snap._widget_window.close()
+
+    def test_does_not_create_widget_when_disabled(self):
+        snap, m = self._snap(False)
+        m.SnapCapApp._setup_desktop_widget(snap)
+        self.assertIsNone(snap._widget_window)
+
+    def test_hides_existing_widget_when_toggled_off(self):
+        snap, m = self._snap(True)
+        try:
+            m.SnapCapApp._setup_desktop_widget(snap)
+            self.assertTrue(snap._widget_window.isVisible())
+            snap._conf["show_desktop_widget"] = False
+            m.SnapCapApp._setup_desktop_widget(snap)
+            self.assertFalse(snap._widget_window.isVisible())
+        finally:
+            if snap._widget_window is not None:
+                snap._widget_window.close()
+
+    def test_reshows_same_instance_when_toggled_back_on(self):
+        snap, m = self._snap(True)
+        try:
+            m.SnapCapApp._setup_desktop_widget(snap)
+            first_instance = snap._widget_window
+            snap._conf["show_desktop_widget"] = False
+            m.SnapCapApp._setup_desktop_widget(snap)
+            snap._conf["show_desktop_widget"] = True
+            m.SnapCapApp._setup_desktop_widget(snap)
+            self.assertIs(snap._widget_window, first_instance)
+            self.assertTrue(snap._widget_window.isVisible())
+        finally:
+            if snap._widget_window is not None:
+                snap._widget_window.close()
+
+    def test_post_capture_refreshes_visible_widget_stat(self):
+        """The widget's stat is kept current right after a capture completes
+        (belt-and-suspenders alongside its own periodic timer) — but only
+        when it's actually visible, so a hidden/disabled widget never does
+        needless work on every capture."""
+        snap, m = self._snap(True)
+        snap._conf = {
+            "show_desktop_widget": True, "capture_sound": False, "auto_redact": False,
+            "watermark_enabled": False, "skip_editor_on_capture": True,
+            "auto_copy": False, "auto_save": False,
+        }
+        m.SnapCapApp._setup_desktop_widget(snap)
+        snap._widget_window.refresh_stat = unittest.mock.Mock()
+        snap.tray = unittest.mock.Mock()
+        try:
+            from PIL import Image
+            with unittest.mock.patch("config.load", return_value=snap._conf):
+                m.SnapCapApp._post_capture(snap, Image.new("RGB", (4, 4)))
+            snap._widget_window.refresh_stat.assert_called_once()
+        finally:
+            if snap._widget_window is not None:
+                snap._widget_window.close()
+
+
 if __name__ == "__main__":
     unittest.main()

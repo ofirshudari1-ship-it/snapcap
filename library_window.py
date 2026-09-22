@@ -57,6 +57,31 @@ def pil_to_qpixmap(img: Image.Image) -> QPixmap:
     return QPixmap.fromImage(qi)
 
 
+_LIBRARY_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+
+
+def count_captured_this_month(save_dir) -> int:
+    """Real 'captured this month' count from the files already on disk
+    (mtime-based) — the single source of truth for this stat, shared by the
+    Library toolbar (§18.4 gamification) and the desktop widget so the two
+    never drift out of sync or compute it twice."""
+    now = datetime.datetime.now()
+    save_dir = Path(save_dir)
+    try:
+        paths = [p for p in save_dir.rglob("*") if p.suffix.lower() in _LIBRARY_EXTS]
+    except Exception:
+        return 0
+    count = 0
+    for p in paths:
+        try:
+            mtime = datetime.datetime.fromtimestamp(p.stat().st_mtime)
+        except Exception:
+            continue
+        if mtime.year == now.year and mtime.month == now.month:
+            count += 1
+    return count
+
+
 class ThumbnailCard(QFrame):
     clicked = pyqtSignal(str)  # emits file path
 
@@ -347,7 +372,7 @@ class LibraryWindow(QWidget):
             pass
 
     def _refresh_files(self):
-        exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+        exts = _LIBRARY_EXTS
         self._all_paths = sorted(
             [str(p) for p in self._save_dir.rglob("*") if p.suffix.lower() in exts],
             key=os.path.getmtime, reverse=True,
@@ -360,12 +385,7 @@ class LibraryWindow(QWidget):
         """Gamification (§18.4): a real 'captured this month' count from the
         files already on disk — no invented points/badges, just visible
         progress on a stat the user already generates by using the tool."""
-        now = datetime.datetime.now()
-        this_month = sum(
-            1 for p in self._all_paths
-            if datetime.datetime.fromtimestamp(os.path.getmtime(p)).year == now.year
-            and datetime.datetime.fromtimestamp(os.path.getmtime(p)).month == now.month
-        )
+        this_month = count_captured_this_month(self._save_dir)
         if this_month > 0:
             self._stat_label.setText(t("lib_stat_month_fmt", self._lang, count=this_month))
             self._stat_label.setVisible(True)

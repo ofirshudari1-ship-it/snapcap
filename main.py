@@ -212,6 +212,7 @@ class SnapCapApp:
         self._bridge = _Bridge()
         self._editor_windows: list = []
         self._library_window = None
+        self._widget_window = None
 
         self._bridge.trigger_region.connect(self._capture_region)
         self._bridge.trigger_fullscreen.connect(self._capture_fullscreen)
@@ -224,6 +225,7 @@ class SnapCapApp:
 
         self._setup_tray()
         self._register_hotkeys()
+        self._setup_desktop_widget()
 
         # ── First-run onboarding wizard ───────────────────────────────────────
         if self._conf.get("first_run", True):
@@ -255,6 +257,7 @@ class SnapCapApp:
         # Reload config after wizard saves
         self._conf = cfg.load()
         self._setup_tray()  # rebuild tray with updated config
+        self._setup_desktop_widget()
 
     # ── Update notification ────────────────────────────────────────────────────
     def _notify_update(self, latest: str, release_url: str):
@@ -384,6 +387,26 @@ class SnapCapApp:
         except ImportError:
             pass
 
+    # ── Desktop widget ─────────────────────────────────────────────────────────
+    def _setup_desktop_widget(self):
+        """Creates (once) or shows/hides the floating desktop widget per
+        Settings → Desktop Widget → "Show desktop widget" (default ON).
+        Called at startup, after the onboarding wizard saves, and after the
+        Settings dialog closes — so toggling the checkbox takes effect
+        immediately without a restart."""
+        show = self._conf.get("show_desktop_widget", True)
+        if show:
+            if self._widget_window is None:
+                from widget_window import WidgetWindow
+                self._widget_window = WidgetWindow(
+                    on_capture=self._bridge.trigger_region.emit,
+                    on_open_library=self._bridge.trigger_library.emit,
+                )
+            self._widget_window.refresh_stat()
+            self._widget_window.show()
+        elif self._widget_window is not None:
+            self._widget_window.hide()
+
     # ── Capture delay ──────────────────────────────────────────────────────────
     def _run_after_delay(self, fn):
         """Runs fn() immediately, or — if the user configured a capture
@@ -433,6 +456,11 @@ class SnapCapApp:
         if not img:
             return
         conf = cfg.load()
+
+        # Keep the desktop widget's "captured this month" stat current right
+        # away, instead of waiting on its own periodic refresh timer.
+        if self._widget_window is not None and self._widget_window.isVisible():
+            self._widget_window.refresh_stat()
 
         if conf.get("capture_sound", True):
             self._play_shutter_sound()
@@ -632,6 +660,8 @@ class SnapCapApp:
         # shutdown path as the automatic background flow.
         if getattr(dlg, "update_launched", False):
             self._quit_for_update()
+        else:
+            self._setup_desktop_widget()
 
     def _show_about(self):
         msg = QMessageBox()

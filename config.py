@@ -101,6 +101,15 @@ DEFAULT_CONFIG = {
     # instead of just showing the "update available" tray notification (see
     # update_checker.perform_self_update / start_background_autoupdate).
     "auto_update": False,
+    # 2026-09-22 desktop widget pass — a small always-on-top floating panel
+    # with the "captured this month" stat + one-click "Capture now" / "Open
+    # Library". Default ON (opt-out, not opt-in) since it's a passive,
+    # non-intrusive panel and the whole point is being visible without an
+    # extra step; "widget_pos" is None until the user drags it once, at
+    # which point WidgetWindow persists {"x": int, "y": int} here so it
+    # reopens in the same spot across restarts.
+    "show_desktop_widget": True,
+    "widget_pos": None,
 }
 
 
