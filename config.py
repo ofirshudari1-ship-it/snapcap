@@ -1,6 +1,7 @@
 import base64
 import copy
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -185,20 +186,69 @@ def ensure_dirs():
     _make_dirs()
 
 
+def _type_ok(default, value) -> bool:
+    """Does a loaded value have the same shape as its default? bool is
+    checked before int because bool is an int subclass in Python (a
+    hand-edited `"capture_delay_sec": true` must not pass as a number)."""
+    if default is None:
+        return True  # e.g. widget_pos: None until first drag, then a dict
+    if isinstance(default, bool):
+        return isinstance(value, bool)
+    if isinstance(default, int):
+        return isinstance(value, int) and not isinstance(value, bool)
+    if isinstance(default, str):
+        return isinstance(value, str)
+    if isinstance(default, dict):
+        return isinstance(value, dict)
+    if isinstance(default, list):
+        return isinstance(value, list)
+    return True
+
+
+def _merge(defaults: dict, data: dict) -> dict:
+    """Defaults first, user values win — recursively for nested dicts
+    (hotkeys, upload_targets). The previous flat `{**DEFAULT_CONFIG, **data}`
+    replaced a nested dict wholesale, so a config.json written before a new
+    nested default existed (e.g. the capture_text_ocr hotkey) never gained
+    it: no hotkey got registered, and Settings → Hotkeys (which lists
+    whatever keys are present) had no row to set it from. A value whose
+    type doesn't match its default (hand-edited / half-written file) falls
+    back to the default instead of crashing the code that reads it.
+    Keys not in defaults are kept as-is (forward compatibility)."""
+    out = copy.deepcopy(defaults)
+    for key, value in data.items():
+        if key in defaults:
+            default = defaults[key]
+            if not _type_ok(default, value):
+                continue
+            if isinstance(default, dict) and default:
+                out[key] = _merge(default, value)
+            else:
+                out[key] = copy.deepcopy(value)
+        else:
+            out[key] = copy.deepcopy(value)
+    return out
+
+
 def load() -> dict:
+    """Always returns a fresh, fully-populated dict — a deep copy, never
+    sharing nested objects with DEFAULT_CONFIG (the old shallow
+    `dict(DEFAULT_CONFIG)` fallback let Settings' in-place writes to
+    conf["hotkeys"][...] / conf["upload_targets"][...] mutate the module
+    defaults themselves for the rest of the process)."""
     _make_dirs()
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # Merge: defaults first, then user values (user wins)
-            merged = {**DEFAULT_CONFIG, **data}
-            _transform_secrets(merged, _decrypt)
-            _make_save_dir(merged)
-            return merged
+            if isinstance(data, dict):
+                merged = _merge(DEFAULT_CONFIG, data)
+                _transform_secrets(merged, _decrypt)
+                _make_save_dir(merged)
+                return merged
         except Exception:
             pass
-    cfg = dict(DEFAULT_CONFIG)
+    cfg = copy.deepcopy(DEFAULT_CONFIG)
     _make_save_dir(cfg)
     return cfg
 
@@ -206,8 +256,25 @@ def load() -> dict:
 def save(cfg: dict):
     """Writes cfg to disk with secrets DPAPI-encrypted. Operates on a deep
     copy so the caller's in-memory cfg (which the rest of the app reads
-    plaintext values from for actual API calls) is never mutated."""
+    plaintext values from for actual API calls) is never mutated.
+
+    Atomic: written to a sibling temp file, flushed to disk, then swapped
+    in with os.replace(). A crash / power loss mid-write used to be able to
+    leave a truncated config.json, which load() then treats as corrupt and
+    silently replaces with defaults — losing every setting, including the
+    saved API key."""
     _make_dirs()
     on_disk = _transform_secrets(copy.deepcopy(cfg), _encrypt)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(on_disk, f, indent=2, ensure_ascii=False)
+    tmp = CONFIG_FILE.with_name(CONFIG_FILE.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(on_disk, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, CONFIG_FILE)
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass

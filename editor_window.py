@@ -33,20 +33,37 @@ import config as cfg
 import share_manager as sm
 import ai_engine as ai
 import update_checker
+import a11y
 from i18n import t, is_rtl, current_language
 
 
 # ── Colour palette (theme-aware) ────────────────────────────────────────────────
+# MUTED_FG: secondary/helper text (counts, dates, status lines). Chosen by
+# measured WCAG ratio, not by eye — the previous hardcoded #888/#777/#aaa
+# greys failed AA in light mode (2.1-3.3:1) and #777 even failed in dark
+# (3.8:1). #9aa3b5 is >=6.2:1 on both dark surfaces; #5b6275 is >=5.5:1 on
+# both light surfaces.
+# ACCENT_FG: text drawn ON an ACCENT2 fill (checked tool, primary button) —
+# dark ink on the brand teal (9.3:1, see STANDARDS.md SnapCap notes).
+# ACCENT_TEXT: the brand accent used AS text color. Plain teal is fine on
+# dark (8.7-9.3:1) but only 1.7-1.8:1 on the light surfaces, so light mode
+# uses a darker teal (5.3-5.8:1).
+# DANGER_FG: destructive-action text (Delete). CONTROL_BORDER: 1px outline
+# for buttons/inputs — the fill alone (#e3e7f1 on white = 1.24:1,
+# #1f3a6b on #16213e = 1.42:1) is below the 3:1 non-text contrast WCAG
+# requires for a control's boundary (STANDARDS.md §20.1).
 _THEMES = {
     "dark": {
         "DARK_BG": "#1a1a2e", "PANEL_BG": "#16213e", "ACCENT": "#0f3460",
         "ACCENT2": "#00d9a3", "TEXT_FG": "#eaeaea", "TOOL_BTN": "#1f3a6b",
-        "TOOL_HOV": "#3b82f6",
+        "TOOL_HOV": "#3b82f6", "MUTED_FG": "#9aa3b5", "ACCENT_FG": "#1a1a2e",
+        "ACCENT_TEXT": "#00d9a3", "DANGER_FG": "#ff6b6b", "CONTROL_BORDER": "#6b86b8",
     },
     "light": {
         "DARK_BG": "#f4f5f9", "PANEL_BG": "#ffffff", "ACCENT": "#dfe6f5",
         "ACCENT2": "#00d9a3", "TEXT_FG": "#1c1c2b", "TOOL_BTN": "#e3e7f1",
-        "TOOL_HOV": "#c7d2ea",
+        "TOOL_HOV": "#c7d2ea", "MUTED_FG": "#5b6275", "ACCENT_FG": "#1a1a2e",
+        "ACCENT_TEXT": "#00745a", "DANGER_FG": "#b42318", "CONTROL_BORDER": "#7c869b",
     },
 }
 
@@ -57,6 +74,27 @@ ACCENT2  = _THEMES["dark"]["ACCENT2"]
 TEXT_FG  = _THEMES["dark"]["TEXT_FG"]
 TOOL_BTN = _THEMES["dark"]["TOOL_BTN"]
 TOOL_HOV = _THEMES["dark"]["TOOL_HOV"]
+MUTED_FG = _THEMES["dark"]["MUTED_FG"]
+ACCENT_FG = _THEMES["dark"]["ACCENT_FG"]
+ACCENT_TEXT = _THEMES["dark"]["ACCENT_TEXT"]
+DANGER_FG = _THEMES["dark"]["DANGER_FG"]
+CONTROL_BORDER = _THEMES["dark"]["CONTROL_BORDER"]
+
+
+def _high_contrast_palette() -> dict:
+    """STANDARDS.md §20.2: when Windows High Contrast is on, every palette
+    slot maps to the user's own system colors instead of SnapCap's brand
+    colors — the user chose those colors deliberately, the app must not
+    override them."""
+    c = a11y.system_colors()
+    return {
+        "DARK_BG": c["window"], "PANEL_BG": c["window"], "ACCENT": c["button"],
+        "ACCENT2": c["highlight"], "TEXT_FG": c["window_text"],
+        "TOOL_BTN": c["button"], "TOOL_HOV": c["highlight"],
+        "MUTED_FG": c["window_text"], "ACCENT_FG": c["highlight_text"],
+        "ACCENT_TEXT": c["window_text"], "DANGER_FG": c["window_text"],
+        "CONTROL_BORDER": c["button_text"],
+    }
 
 
 def detect_windows_theme() -> str:
@@ -78,11 +116,17 @@ def detect_windows_theme() -> str:
 
 def apply_theme(name: str = "dark"):
     """Swap the module-level color palette. Call before building any stylesheet.
-    name="system" resolves to the current Windows dark/light setting."""
-    global DARK_BG, PANEL_BG, ACCENT, ACCENT2, TEXT_FG, TOOL_BTN, TOOL_HOV
-    if name == "system":
-        name = detect_windows_theme()
-    palette = _THEMES.get(name, _THEMES["dark"])
+    name="system" resolves to the current Windows dark/light setting.
+    An active Windows High Contrast theme overrides ANY choice (including
+    an explicit dark/light pick) — see _high_contrast_palette()."""
+    global DARK_BG, PANEL_BG, ACCENT, ACCENT2, TEXT_FG, TOOL_BTN, TOOL_HOV, MUTED_FG, ACCENT_FG
+    global ACCENT_TEXT, DANGER_FG, CONTROL_BORDER
+    if a11y.is_high_contrast():
+        palette = _high_contrast_palette()
+    else:
+        if name == "system":
+            name = detect_windows_theme()
+        palette = _THEMES.get(name, _THEMES["dark"])
     DARK_BG  = palette["DARK_BG"]
     PANEL_BG = palette["PANEL_BG"]
     ACCENT   = palette["ACCENT"]
@@ -90,6 +134,11 @@ def apply_theme(name: str = "dark"):
     TEXT_FG  = palette["TEXT_FG"]
     TOOL_BTN = palette["TOOL_BTN"]
     TOOL_HOV = palette["TOOL_HOV"]
+    MUTED_FG = palette["MUTED_FG"]
+    ACCENT_FG = palette["ACCENT_FG"]
+    ACCENT_TEXT = palette["ACCENT_TEXT"]
+    DANGER_FG = palette["DANGER_FG"]
+    CONTROL_BORDER = palette["CONTROL_BORDER"]
 
 
 PRESET_COLORS = [
@@ -670,7 +719,7 @@ class EditorWindow(QMainWindow):
                 padding: 6px 10px; color: {TEXT_FG};
             }}
             QToolButton:hover {{ background: {TOOL_HOV}; }}
-            QToolButton:checked {{ background: {ACCENT2}; color: #1a1a2e; }}
+            QToolButton:checked {{ background: {ACCENT2}; color: {ACCENT_FG}; }}
             QToolButton:focus {{ outline: none; border: 2px solid {ACCENT2}; }}
             QPushButton {{
                 background: {TOOL_BTN}; border: none; border-radius: 10px;
@@ -678,7 +727,7 @@ class EditorWindow(QMainWindow):
             }}
             QPushButton:hover {{ background: {TOOL_HOV}; }}
             QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 5px 12px; }}
-            QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
+            QPushButton#accent {{ background: {ACCENT2}; color: {ACCENT_FG}; font-weight: bold; }}
             QPushButton#accent:hover {{ background: #00b386; }}
             QComboBox, QSpinBox {{
                 background: {PANEL_BG}; border: 1px solid {TOOL_BTN};
@@ -697,7 +746,7 @@ class EditorWindow(QMainWindow):
                 subcontrol-origin: margin; left: 10px; padding: 0 6px;
                 color: {TEXT_FG};
             }}
-            QStatusBar {{ background: {PANEL_BG}; color: #aaa; padding: 2px 8px; }}
+            QStatusBar {{ background: {PANEL_BG}; color: {MUTED_FG}; padding: 2px 8px; }}
             QSlider::groove:horizontal {{
                 background: {TOOL_BTN}; height: 4px; border-radius: 2px;
             }}
@@ -878,7 +927,7 @@ class EditorWindow(QMainWindow):
                           border-radius: 9px; padding: 10px; text-align: left;
                           font-weight: bold; font-size: 13px; }}
             QPushButton:hover {{ background: {TOOL_HOV}; }}
-            QPushButton:checked {{ background: {ACCENT2}; color: #1a1a2e; }}
+            QPushButton:checked {{ background: {ACCENT2}; color: {ACCENT_FG}; }}
         """)
         content.setVisible(expanded)
 
@@ -944,7 +993,7 @@ class EditorWindow(QMainWindow):
         al.setSpacing(8)
 
         self._ai_status = QLabel("⚙  API key not set")
-        self._ai_status.setStyleSheet("color: #aaa; font-size: 11px;")
+        self._ai_status.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px;")
         al.addWidget(self._ai_status)
         self._refresh_ai_status()
 
@@ -1007,7 +1056,7 @@ class EditorWindow(QMainWindow):
 
         reset_step_btn = QPushButton("↺  Reset Step Counter")
         reset_step_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        reset_step_btn.setStyleSheet("color: #aaa; font-size: 11px; background: transparent; border: none;")
+        reset_step_btn.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px; background: transparent; border: none;")
         reset_step_btn.clicked.connect(lambda: setattr(self.canvas, "_step_counter", 1))
         fl.addWidget(reset_step_btn)
 
@@ -1327,7 +1376,7 @@ class SettingsDialog(QDialog):
             QTabBar::tab:selected {{ background: {TOOL_HOV}; }}
             QPushButton {{ background: {TOOL_BTN}; color: {TEXT_FG}; border: none;
                           border-radius: 9px; padding: 8px 18px; }}
-            QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
+            QPushButton#accent {{ background: {ACCENT2}; color: {ACCENT_FG}; font-weight: bold; }}
             QPushButton:hover {{ background: {TOOL_HOV}; }}
             QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 6px 16px; }}
         """)

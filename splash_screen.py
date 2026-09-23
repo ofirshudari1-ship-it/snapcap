@@ -28,6 +28,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPointF, pyqtProperty
 
+import a11y
 import config as cfg
 
 # Enforced minimum time the splash stays visible, measured from show() to
@@ -155,6 +156,14 @@ class SplashScreen(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(380, 260)
         self._radius = 20
+        # STANDARDS.md §20.2: under a Windows Contrast Theme the brand
+        # gradient and fixed greys give way to the user's system colors.
+        self._hc = a11y.is_high_contrast()
+        if self._hc:
+            c = a11y.system_colors()
+            fg, muted = c["window_text"], c["window_text"]
+        else:
+            fg, muted = "#eaeaea", "#8892a4"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 30, 0, 22)
@@ -169,12 +178,12 @@ class SplashScreen(QWidget):
 
         name = QLabel("SnapCap")
         name.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name.setStyleSheet("color: #eaeaea; font-size: 19px; font-weight: bold; font-family: 'Segoe UI'; background: transparent;")
+        name.setStyleSheet(f"color: {fg}; font-size: 19px; font-weight: bold; font-family: 'Segoe UI'; background: transparent;")
         layout.addWidget(name)
 
         ver = QLabel(f"v{cfg.APP_VERSION}")
         ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ver.setStyleSheet("color: #8892a4; font-size: 11px; font-family: 'Segoe UI'; background: transparent;")
+        ver.setStyleSheet(f"color: {muted}; font-size: 11px; font-family: 'Segoe UI'; background: transparent;")
         layout.addWidget(ver)
 
         layout.addStretch()
@@ -187,7 +196,7 @@ class SplashScreen(QWidget):
         loading_row.addWidget(self._spinner)
 
         self._status = QLabel("Starting…")
-        self._status.setStyleSheet("color: #8892a4; font-size: 10px; font-family: 'Segoe UI'; background: transparent;")
+        self._status.setStyleSheet(f"color: {muted}; font-size: 10px; font-family: 'Segoe UI'; background: transparent;")
         loading_row.addWidget(self._status)
 
         loading_row.addStretch()
@@ -216,14 +225,19 @@ class SplashScreen(QWidget):
         # fail WCAG contrast for white text on the light teal end. The full
         # bright gradient is still used, at readable size, on the logo mark
         # and the spinner.
-        grad = QLinearGradient(0, 0, self.width(), self.height())
-        grad.setColorAt(0.0, QColor("#1a1a2e"))
-        grad.setColorAt(0.55, QColor("#16213e"))
-        grad.setColorAt(1.0, QColor("#123a63"))
-        painter.fillPath(path, grad)
-
-        pen = QPen(QColor(0, 217, 163, 70))
-        pen.setWidthF(1.2)
+        if self._hc:
+            c = a11y.system_colors()
+            painter.fillPath(path, QColor(c["window"]))
+            pen = QPen(QColor(c["window_text"]))
+            pen.setWidthF(2.0)
+        else:
+            grad = QLinearGradient(QPointF(0, 0), QPointF(self.width(), self.height()))
+            grad.setColorAt(0.0, QColor("#1a1a2e"))
+            grad.setColorAt(0.55, QColor("#16213e"))
+            grad.setColorAt(1.0, QColor("#123a63"))
+            painter.fillPath(path, grad)
+            pen = QPen(QColor(0, 217, 163, 70))
+            pen.setWidthF(1.2)
         painter.setPen(pen)
         painter.drawPath(path)
         painter.end()

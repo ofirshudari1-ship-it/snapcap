@@ -39,6 +39,13 @@ GITHUB_REPO = "ofirshudari1-ship-it/snapcap"
 RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_PAGE_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 USER_AGENT = "SnapCap-UpdateChecker/1.0"
+# Only installer URLs attached to THIS repo's releases are ever downloaded
+# and executed. GitHub's API is trusted over HTTPS, but pinning the prefix
+# means a malformed/unexpected API payload (or a future bug that feeds this
+# module some other URL) can't turn the self-updater into "download and run
+# an arbitrary exe". urllib follows GitHub's redirect to its CDN on its own.
+ALLOWED_ASSET_PREFIX = f"https://github.com/{GITHUB_REPO}/releases/download/"
+_TEMP_INSTALLER_PREFIX = "SnapCap-Setup-"
 
 
 def _parse_version(v: str):
@@ -50,7 +57,11 @@ def _parse_version(v: str):
     for piece in v.split("."):
         digits = "".join(ch for ch in piece if ch.isdigit())
         parts.append(int(digits) if digits else 0)
-    return tuple(parts) if parts else (0,)
+    # Pad to 3 components so "1.9" and "1.9.0" compare equal — plain tuple
+    # comparison would otherwise call (1, 9, 0) newer than (1, 9).
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts)
 
 
 def _is_newer(latest: str, current: str) -> bool:
@@ -139,7 +150,9 @@ def download_installer(asset_url: str, expected_size: Optional[int] = None,
     """
     tmp_path = None
     try:
-        fd, tmp_name = tempfile.mkstemp(prefix="SnapCap-Setup-", suffix=".exe")
+        if not is_trusted_asset_url(asset_url):
+            return None
+        fd, tmp_name = tempfile.mkstemp(prefix=_TEMP_INSTALLER_PREFIX, suffix=".exe")
         os.close(fd)
         tmp_path = Path(tmp_name)
 
@@ -169,6 +182,14 @@ def download_installer(asset_url: str, expected_size: Optional[int] = None,
         if expected_size and downloaded != expected_size:
             tmp_path.unlink(missing_ok=True)
             return None
+        # A Windows executable always starts with the "MZ" DOS header. An
+        # HTML error page / captive-portal login page served with a 200
+        # would otherwise pass the size check whenever GitHub didn't report
+        # a size, and then get "launched" as an installer.
+        with open(tmp_path, "rb") as f:
+            if f.read(2) != b"MZ":
+                tmp_path.unlink(missing_ok=True)
+                return None
         return tmp_path
     except Exception:
         try:
@@ -177,6 +198,34 @@ def download_installer(asset_url: str, expected_size: Optional[int] = None,
         except Exception:
             pass
         return None
+
+
+def is_trusted_asset_url(url) -> bool:
+    return isinstance(url, str) and url.startswith(ALLOWED_ASSET_PREFIX)
+
+
+def cleanup_stale_downloads(max_age_sec: float = 3600.0) -> int:
+    """Deletes installer copies a previous self-update left in %TEMP%.
+    download_installer() has to leave the file in place (the detached
+    silent installer is running FROM it when this process exits), so every
+    auto-update used to strand a ~140 MB SnapCap-Setup-*.exe in the temp
+    folder forever. Called once at startup; only removes files older than
+    max_age_sec so an installer that may still be finishing is never
+    touched, and silently skips anything locked/undeletable. Returns the
+    number of files removed. Never raises."""
+    removed = 0
+    try:
+        now = time.time()
+        for p in Path(tempfile.gettempdir()).glob(f"{_TEMP_INSTALLER_PREFIX}*.exe"):
+            try:
+                if now - p.stat().st_mtime > max_age_sec:
+                    p.unlink()
+                    removed += 1
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return removed
 
 
 def launch_silent_install(installer_path, relaunch: bool = True) -> bool:

@@ -17,6 +17,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Isolate every test from the developer's REAL SnapCap profile. config.py
+# resolves CONFIG_DIR/CONFIG_FILE at call time, so repointing the module
+# attributes here (before any test runs) redirects every load()/save() to a
+# throwaway directory. Before 1.10.0 this suite read and wrote
+# ~/.snapcap/config.json directly — e.g. test_secret_roundtrip_survives_
+# save_load saved a copy of DEFAULT_CONFIG over the user's real settings.
+import tempfile as _tempfile
+import config as _cfg
+_TEST_HOME = Path(_tempfile.mkdtemp(prefix="snapcap-tests-"))
+_cfg.CONFIG_DIR = _TEST_HOME
+_cfg.CONFIG_FILE = _TEST_HOME / "config.json"
+_cfg.LIBRARY_DIR = _TEST_HOME / "library"
+_cfg.TEMP_DIR = _TEST_HOME / "temp"
+
 
 class TestConfig(unittest.TestCase):
     def test_load_returns_all_defaults(self):
@@ -581,7 +595,7 @@ class TestSelfUpdateDownload(unittest.TestCase):
     def test_download_success_matches_expected_size(self):
         import update_checker as uc
 
-        payload = b"x" * 1000
+        payload = b"MZ" + b"x" * 998
 
         class _FakeResp:
             headers = {"Content-Length": str(len(payload))}
@@ -600,7 +614,7 @@ class TestSelfUpdateDownload(unittest.TestCase):
         progress_calls = []
         with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
             path = uc.download_installer(
-                "https://example.com/SnapCap-Setup-9.9.9.exe",
+                "https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v9.9.9/SnapCap-Setup-9.9.9.exe",
                 expected_size=len(payload),
                 on_progress=lambda d, t: progress_calls.append((d, t)),
             )
@@ -633,7 +647,7 @@ class TestSelfUpdateDownload(unittest.TestCase):
 
         with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
             path = uc.download_installer(
-                "https://example.com/SnapCap-Setup-9.9.9.exe", expected_size=99999,
+                "https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v9.9.9/SnapCap-Setup-9.9.9.exe", expected_size=99999,
             )
         self.assertIsNone(path)
 
@@ -644,7 +658,7 @@ class TestSelfUpdateDownload(unittest.TestCase):
             raise OSError("simulated: offline")
 
         with unittest.mock.patch("urllib.request.urlopen", side_effect=_raise):
-            path = uc.download_installer("https://example.com/SnapCap-Setup-9.9.9.exe")
+            path = uc.download_installer("https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v9.9.9/SnapCap-Setup-9.9.9.exe")
         self.assertIsNone(path)
 
     def test_find_installer_asset_picks_matching_exe(self):
@@ -1075,27 +1089,332 @@ class TestDesktopWidgetAppLifecycle(unittest.TestCase):
                 snap._widget_window.close()
 
     def test_post_capture_refreshes_visible_widget_stat(self):
-        """The widget's stat is kept current right after a capture completes
-        (belt-and-suspenders alongside its own periodic timer) — but only
-        when it's actually visible, so a hidden/disabled widget never does
-        needless work on every capture."""
+        """The widget's stat is refreshed right after a capture is SAVED —
+        after save_image(), so the new file is already counted (1.10.0 fix:
+        it used to refresh before the save and always lag by one)."""
         snap, m = self._snap(True)
         snap._conf = {
             "show_desktop_widget": True, "capture_sound": False, "auto_redact": False,
             "watermark_enabled": False, "skip_editor_on_capture": True,
-            "auto_copy": False, "auto_save": False,
+            "auto_copy": False, "auto_save": True,
         }
         m.SnapCapApp._setup_desktop_widget(snap)
-        snap._widget_window.refresh_stat = unittest.mock.Mock()
+        order = []
+        snap._widget_window.refresh_stat = unittest.mock.Mock(side_effect=lambda: order.append("refresh"))
         snap.tray = unittest.mock.Mock()
         try:
             from PIL import Image
-            with unittest.mock.patch("config.load", return_value=snap._conf):
+            with unittest.mock.patch("config.load", return_value=snap._conf), \
+                 unittest.mock.patch("share_manager.save_image",
+                                     side_effect=lambda img: order.append("save") or "C:/x/shot.png"):
                 m.SnapCapApp._post_capture(snap, Image.new("RGB", (4, 4)))
-            snap._widget_window.refresh_stat.assert_called_once()
+            self.assertEqual(order, ["save", "refresh"])
         finally:
             if snap._widget_window is not None:
                 snap._widget_window.close()
+
+    def test_rebuild_replaces_widget_instance(self):
+        """Language change in Settings -> the widget is recreated (its
+        captions are fixed at construction), not just re-shown."""
+        snap, m = self._snap(True)
+        try:
+            m.SnapCapApp._setup_desktop_widget(snap)
+            first = snap._widget_window
+            m.SnapCapApp._setup_desktop_widget(snap, rebuild=True)
+            self.assertIsNot(snap._widget_window, first)
+            self.assertTrue(snap._widget_window.isVisible())
+        finally:
+            if snap._widget_window is not None:
+                snap._widget_window.close()
+
+
+class TestConfigRobustness(unittest.TestCase):
+    """1.10.0 config.py hardening — deep merge, type validation, no shared
+    nested defaults, atomic save."""
+
+    def _write(self, data):
+        import json
+        import config as cfg
+        cfg._make_dirs()
+        cfg.CONFIG_FILE.write_text(json.dumps(data), encoding="utf-8")
+
+    def tearDown(self):
+        import config as cfg
+        cfg.CONFIG_FILE.unlink(missing_ok=True)
+
+    def test_old_nested_hotkeys_gain_new_default_keys(self):
+        import config as cfg
+        self._write({"hotkeys": {"capture_region": "ctrl+alt+r"}})
+        conf = cfg.load()
+        self.assertEqual(conf["hotkeys"]["capture_region"], "ctrl+alt+r")
+        self.assertEqual(conf["hotkeys"]["capture_text_ocr"],
+                         cfg.DEFAULT_CONFIG["hotkeys"]["capture_text_ocr"])
+
+    def test_wrong_type_value_falls_back_to_default(self):
+        import config as cfg
+        self._write({"capture_delay_sec": "abc", "auto_copy": "yes", "hotkeys": []})
+        conf = cfg.load()
+        self.assertEqual(conf["capture_delay_sec"], cfg.DEFAULT_CONFIG["capture_delay_sec"])
+        self.assertEqual(conf["auto_copy"], cfg.DEFAULT_CONFIG["auto_copy"])
+        self.assertEqual(conf["hotkeys"], cfg.DEFAULT_CONFIG["hotkeys"])
+
+    def test_bool_is_not_accepted_as_int(self):
+        import config as cfg
+        self._write({"capture_delay_sec": True})
+        self.assertEqual(cfg.load()["capture_delay_sec"], 0)
+
+    def test_non_dict_json_root_falls_back_to_defaults(self):
+        import config as cfg
+        self._write([1, 2, 3])
+        self.assertEqual(cfg.load(), cfg.DEFAULT_CONFIG)
+
+    def test_loaded_config_never_shares_nested_defaults(self):
+        import config as cfg
+        cfg.CONFIG_FILE.unlink(missing_ok=True)
+        conf = cfg.load()
+        conf["hotkeys"]["capture_region"] = "mutated"
+        conf["upload_targets"]["imgur"]["client_id"] = "mutated"
+        self.assertNotEqual(cfg.DEFAULT_CONFIG["hotkeys"]["capture_region"], "mutated")
+        self.assertNotEqual(cfg.DEFAULT_CONFIG["upload_targets"]["imgur"]["client_id"], "mutated")
+
+    def test_unknown_keys_are_preserved(self):
+        import config as cfg
+        self._write({"some_future_key": 42})
+        self.assertEqual(cfg.load()["some_future_key"], 42)
+
+    def test_save_is_atomic_and_leaves_no_temp_file(self):
+        import config as cfg
+        conf = cfg.load()
+        conf["language"] = "he"
+        cfg.save(conf)
+        self.assertEqual(cfg.load()["language"], "he")
+        self.assertFalse(cfg.CONFIG_FILE.with_name(cfg.CONFIG_FILE.name + ".tmp").exists())
+
+    def test_failed_write_keeps_previous_file_intact(self):
+        import config as cfg
+        conf = cfg.load()
+        conf["language"] = "he"
+        cfg.save(conf)
+        bad = cfg.load()
+        bad["unserializable"] = object()
+        with self.assertRaises(TypeError):
+            cfg.save(bad)
+        self.assertEqual(cfg.load()["language"], "he")
+
+
+class TestUpdateCheckerHardening(unittest.TestCase):
+    def test_versions_with_missing_patch_compare_equal(self):
+        import update_checker as uc
+        self.assertFalse(uc._is_newer("1.9.0", "1.9"))
+        self.assertFalse(uc._is_newer("v1.9", "1.9.0"))
+        self.assertTrue(uc._is_newer("1.10.0", "1.9.0"))
+
+    def test_untrusted_asset_url_is_never_downloaded(self):
+        import update_checker as uc
+        with unittest.mock.patch("urllib.request.urlopen") as mocked:
+            path = uc.download_installer("https://evil.example.com/SnapCap-Setup-9.9.9.exe")
+        self.assertIsNone(path)
+        mocked.assert_not_called()
+
+    def test_non_executable_download_is_rejected(self):
+        import update_checker as uc
+        payload = b"<html>captive portal</html>"
+
+        class _FakeResp:
+            headers = {}
+            def __init__(self):
+                self._buf = payload
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n=-1):
+                chunk, self._buf = self._buf[:n], self._buf[n:]
+                return chunk
+
+        with unittest.mock.patch("urllib.request.urlopen", return_value=_FakeResp()):
+            path = uc.download_installer(
+                uc.ALLOWED_ASSET_PREFIX + "v9.9.9/SnapCap-Setup-9.9.9.exe")
+        self.assertIsNone(path)
+
+    def test_cleanup_removes_only_old_installer_copies(self):
+        import os
+        import time
+        import tempfile
+        import update_checker as uc
+        d = Path(tempfile.mkdtemp())
+        old = d / "SnapCap-Setup-old123.exe"
+        new = d / "SnapCap-Setup-new456.exe"
+        other = d / "Other-Setup.exe"
+        for f in (old, new, other):
+            f.write_bytes(b"MZ")
+        stale = time.time() - 7200
+        os.utime(old, (stale, stale))
+        os.utime(other, (stale, stale))
+        with unittest.mock.patch("tempfile.gettempdir", return_value=str(d)):
+            removed = uc.cleanup_stale_downloads(max_age_sec=3600)
+        self.assertEqual(removed, 1)
+        self.assertFalse(old.exists())
+        self.assertTrue(new.exists())
+        self.assertTrue(other.exists())
+
+
+class TestTrayMessageReleaseUrl(unittest.TestCase):
+    """A click on a non-update balloon must not open the release page just
+    because an update balloon was shown earlier in the session."""
+
+    def test_later_balloon_clears_release_url(self):
+        import main as m
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap.tray = unittest.mock.Mock()
+        m.SnapCapApp._notify_update(snap, "9.9.9", "https://github.com/x/releases/tag/v9.9.9")
+        self.assertEqual(snap._latest_release_url, "https://github.com/x/releases/tag/v9.9.9")
+        m.SnapCapApp._tray_message(snap, "SnapCap", "Saved: a.png", None, 2000)
+        with unittest.mock.patch("update_checker.open_release_page") as opened:
+            m.SnapCapApp._on_tray_message_clicked(snap)
+        opened.assert_not_called()
+
+    def test_same_version_is_announced_once(self):
+        import main as m
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap.tray = unittest.mock.Mock()
+        m.SnapCapApp._notify_update(snap, "9.9.9", "u")
+        m.SnapCapApp._notify_update(snap, "9.9.9", "u")
+        self.assertEqual(snap.tray.showMessage.call_count, 1)
+
+
+class TestAccessibilityHelpers(unittest.TestCase):
+    def test_plain_label_strips_emoji_prefix(self):
+        import a11y
+        self.assertEqual(a11y.plain_label("📷  Capture now"), "Capture now")
+        self.assertEqual(a11y.plain_label("↺ רענן"), "רענן")
+        self.assertEqual(a11y.plain_label("Close"), "Close")
+        self.assertEqual(a11y.plain_label("×"), "×")
+
+    def test_high_contrast_query_never_raises(self):
+        import a11y
+        self.assertIsInstance(a11y.is_high_contrast(), bool)
+        colors = a11y.system_colors()
+        for key in ("window", "window_text", "highlight", "highlight_text"):
+            self.assertRegex(colors[key], r"^#[0-9a-f]{6}$")
+
+    def test_apply_theme_uses_system_colors_under_high_contrast(self):
+        import editor_window as ew
+        fake = {"window": "#000000", "window_text": "#ffffff", "highlight": "#1aebff",
+                "highlight_text": "#000000", "button": "#000000", "button_text": "#ffffff",
+                "gray_text": "#3ff23f"}
+        try:
+            with unittest.mock.patch("a11y.is_high_contrast", return_value=True), \
+                 unittest.mock.patch("a11y.system_colors", return_value=fake):
+                ew.apply_theme("light")
+                self.assertEqual(ew.DARK_BG, "#000000")
+                self.assertEqual(ew.TEXT_FG, "#ffffff")
+                self.assertEqual(ew.ACCENT2, "#1aebff")
+                self.assertEqual(ew.ACCENT_FG, "#000000")
+        finally:
+            ew.apply_theme("dark")
+
+    def test_muted_text_meets_wcag_aa_in_both_themes(self):
+        import editor_window as ew
+
+        def lum(h):
+            h = h.lstrip("#")
+            c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+            c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+        def ratio(a, b):
+            la, lb = lum(a), lum(b)
+            return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+        for theme in ("dark", "light"):
+            pal = ew._THEMES[theme]
+            for bg in (pal["DARK_BG"], pal["PANEL_BG"]):
+                self.assertGreaterEqual(ratio(pal["MUTED_FG"], bg), 4.5, (theme, bg))
+            self.assertGreaterEqual(ratio(pal["ACCENT_FG"], pal["ACCENT2"]), 4.5, theme)
+
+
+class TestWidgetRobustness(unittest.TestCase):
+    def _make_widget(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        self._app = QApplication.instance() or QApplication(sys.argv)
+        from widget_window import WidgetWindow
+        return WidgetWindow(on_capture=unittest.mock.Mock(), on_open_library=unittest.mock.Mock())
+
+    def test_offscreen_saved_position_is_discarded(self):
+        import config as cfg
+        conf = cfg.load()
+        conf["widget_pos"] = {"x": -50000, "y": -50000}
+        cfg.save(conf)
+        w = self._make_widget()
+        try:
+            self.assertNotEqual((w.x(), w.y()), (-50000, -50000))
+        finally:
+            w.close()
+            conf["widget_pos"] = None
+            cfg.save(conf)
+
+    def test_buttons_have_accessible_names_without_emoji(self):
+        from i18n import t
+        w = self._make_widget()
+        try:
+            self.assertEqual(w._close_btn.accessibleName(), t("close", w._lang))
+            self.assertEqual(w._close_btn.toolTip(), t("close", w._lang))
+            self.assertFalse(w._capture_btn.accessibleName().startswith("📷"))
+            self.assertTrue(w._capture_btn.accessibleName())
+            self.assertTrue(w._library_btn.accessibleName())
+        finally:
+            w.close()
+
+    def test_widget_is_excluded_from_screen_capture_once_shown(self):
+        w = self._make_widget()
+        try:
+            with unittest.mock.patch("a11y.exclude_from_capture", return_value=True) as ex:
+                w.show()
+            ex.assert_called_once()
+            self.assertTrue(w.excluded_from_capture)
+        finally:
+            w.close()
+
+    def test_change_event_handles_palette_change_without_error(self):
+        from PyQt6.QtCore import QEvent
+        w = self._make_widget()
+        try:
+            for et in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange,
+                       QEvent.Type.StyleChange, QEvent.Type.WindowTitleChange):
+                w.changeEvent(QEvent(et))
+        finally:
+            w.close()
+
+    def test_high_contrast_paint_path_renders(self):
+        """Paints the widget both ways into an offscreen pixmap — guards
+        against a PyQt6-6.11-invalid QLinearGradient/QPen overload sneaking
+        into either branch (the QPoint-overload crash class)."""
+        from PyQt6.QtGui import QPixmap
+        w = self._make_widget()
+        try:
+            for hc in (False, True):
+                w._high_contrast = hc
+                w._apply_styles()
+                w.grab()  # runs paintEvent
+        finally:
+            w.close()
+
+
+class TestSplashPaints(unittest.TestCase):
+    def test_splash_renders_normal_and_high_contrast(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        self._app = QApplication.instance() or QApplication(sys.argv)
+        import splash_screen as sp
+        for hc in (False, True):
+            with unittest.mock.patch("a11y.is_high_contrast", return_value=hc):
+                s = sp.SplashScreen()
+                try:
+                    s.grab()
+                finally:
+                    s.close()
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QFont, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 
 from PIL import Image
+import a11y
 import config as cfg
 import update_checker
 from i18n import t, is_rtl, current_language
@@ -26,6 +27,10 @@ from logger import get_logger
 
 APP_VERSION = cfg.APP_VERSION
 log = get_logger("main")
+
+# Re-check GitHub for a new release every 24h while running (see
+# SnapCapApp._periodic_update_check).
+_UPDATE_RECHECK_MS = 24 * 60 * 60 * 1000
 
 
 # ── Crash safety net ──────────────────────────────────────────────────────────
@@ -164,6 +169,10 @@ class _CountdownOverlay(QWidget):
 
     def start(self):
         self.show()
+        # The badge sits dead-center on screen and closes the same instant
+        # the delayed capture fires - without this, a fullscreen/region
+        # capture could still catch its last frame before DWM removed it.
+        a11y.exclude_from_capture(self)
         self.raise_()
         self._timer.start(1000)
 
@@ -249,6 +258,14 @@ class SnapCapApp:
                     APP_VERSION, self._bridge.show_update_notif.emit, delay=5.0,
                 )
 
+        self._update_timer = QTimer()
+        self._update_timer.timeout.connect(self._periodic_update_check)
+        self._update_timer.start(_UPDATE_RECHECK_MS)
+
+        # Remove installer copies left in %TEMP% by earlier self-updates
+        # (off the UI thread — it's a directory scan + deletes).
+        threading.Thread(target=update_checker.cleanup_stale_downloads, daemon=True).start()
+
     # ── Onboarding ─────────────────────────────────────────────────────────────
     def _run_onboarding(self):
         from onboarding_wizard import OnboardingWizard
@@ -261,12 +278,40 @@ class SnapCapApp:
 
     # ── Update notification ────────────────────────────────────────────────────
     def _notify_update(self, latest: str, release_url: str):
-        self._latest_release_url = release_url
+        # One balloon per version per session — the periodic re-check below
+        # must not re-announce the same release every day (§16.3: "one
+        # notification per update, not a flood").
+        if latest == getattr(self, "_notified_version", None):
+            return
+        self._notified_version = latest
         lang = current_language()
-        self.tray.showMessage(
+        self._tray_message(
             t("update_available_title", lang),
             t("update_available_msg", lang, version=latest),
             QSystemTrayIcon.MessageIcon.Information, 8000,
+            release_url=release_url,
+        )
+
+    def _tray_message(self, title: str, msg: str, icon, msecs: int, release_url: Optional[str] = None):
+        """Single entry point for every tray balloon. Records which release
+        page (if any) a click on THIS balloon should open: previously
+        _latest_release_url was set by the update balloon and never cleared,
+        so after one update notification, clicking any later "Saved: …" or
+        "Copied …" balloon also opened the GitHub release page."""
+        self._latest_release_url = release_url
+        self.tray.showMessage(title, msg, icon, msecs)
+
+    def _periodic_update_check(self):
+        """SnapCap is tray-resident and often runs for days/weeks — a single
+        check at launch meant a long-running session never heard about a new
+        release. Every _UPDATE_RECHECK_MS this re-runs the notify-only check
+        (never the silent auto-install: quitting mid-session could throw away
+        an open, unsaved editor), honoring the *current* check_updates
+        setting rather than the one at launch."""
+        if not cfg.load().get("check_updates", True):
+            return
+        update_checker.start_background_check(
+            APP_VERSION, self._bridge.show_update_notif.emit, delay=0.0,
         )
 
     def _on_update_launched(self, version: str, installer_path: str):
@@ -310,11 +355,28 @@ class SnapCapApp:
             self.tray.messageClicked.connect(self._on_tray_message_clicked)
             self.tray.show()
 
+        self._build_tray_menu()
+
+        lang = current_language()
+        if not self._conf.get("first_run", True) and self._conf.get("show_startup_notification", True):
+            self._tray_message(
+                t("app_name", lang),
+                t("tray_running", lang),
+                QSystemTrayIcon.MessageIcon.Information,
+                2500,
+            )
+
+    def _build_tray_menu(self):
+        """(Re)builds the tray context menu from the current config. Split
+        out of _setup_tray so a Settings change (language, hotkeys) can
+        refresh the menu labels and shortcut hints immediately, without also
+        re-showing the "Running in the system tray" balloon."""
         conf = self._conf
         lang = current_language()
         self.tray.setToolTip(f"{t('app_name', lang)} v{APP_VERSION}")
 
         menu = QMenu()
+        menu.aboutToShow.connect(self._sync_widget_action)
         menu.setLayoutDirection(
             Qt.LayoutDirection.RightToLeft if is_rtl(lang) else Qt.LayoutDirection.LeftToRight
         )
@@ -345,6 +407,12 @@ class SnapCapApp:
         _add(f"📝  {t('tray_capture_text_ocr', lang)}",     self._bridge.trigger_text_ocr.emit,   hk.get("capture_text_ocr", ""))
         menu.addSeparator()
         _add(f"📚  {t('tray_library', lang)}",             self._bridge.trigger_library.emit,    hk.get("open_library", ""))
+        # Checkable toggle for the desktop widget — before this, closing the
+        # widget with its × could only be undone from Settings → General.
+        self._widget_action = menu.addAction(t("cb_show_desktop_widget", lang))
+        self._widget_action.setCheckable(True)
+        self._widget_action.setChecked(bool(conf.get("show_desktop_widget", True)))
+        self._widget_action.toggled.connect(self._set_widget_enabled)
         menu.addSeparator()
         _add(f"⚙️  {t('tray_settings', lang)}",            self._open_settings)
         _add(f"ℹ️  {t('tray_about', lang)}",                self._show_about)
@@ -352,14 +420,10 @@ class SnapCapApp:
         _add(f"✕  {t('tray_quit', lang)}",                  self.app.quit)
 
         self.tray.setContextMenu(menu)
-
-        if not self._conf.get("first_run", True) and self._conf.get("show_startup_notification", True):
-            self.tray.showMessage(
-                t("app_name", lang),
-                t("tray_running", lang),
-                QSystemTrayIcon.MessageIcon.Information,
-                2500,
-            )
+        # QSystemTrayIcon.setContextMenu doesn't take ownership — keep a
+        # reference so the previous menu is released on rebuild, and the
+        # current one isn't garbage-collected.
+        self._tray_menu = menu
 
     def _on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -369,6 +433,14 @@ class SnapCapApp:
     def _register_hotkeys(self):
         try:
             import keyboard
+            # Idempotent re-registration: called again after Settings is
+            # saved so edited hotkeys take effect immediately (previously
+            # they silently needed an app restart). Clear our old bindings
+            # first so the previous combos stop firing.
+            try:
+                keyboard.unhook_all_hotkeys()
+            except Exception:
+                pass
             hk = self._conf.get("hotkeys", {})
 
             def _bind(key: str, signal):
@@ -388,13 +460,20 @@ class SnapCapApp:
             pass
 
     # ── Desktop widget ─────────────────────────────────────────────────────────
-    def _setup_desktop_widget(self):
+    def _setup_desktop_widget(self, rebuild: bool = False):
         """Creates (once) or shows/hides the floating desktop widget per
         Settings → Desktop Widget → "Show desktop widget" (default ON).
         Called at startup, after the onboarding wizard saves, and after the
         Settings dialog closes — so toggling the checkbox takes effect
         immediately without a restart."""
         show = self._conf.get("show_desktop_widget", True)
+        if rebuild and self._widget_window is not None:
+            # Language changed: the widget's captions/layout direction are
+            # fixed at construction, so replace it rather than leave it in
+            # the old language until the next restart.
+            self._widget_window.close()
+            self._widget_window.deleteLater()
+            self._widget_window = None
         if show:
             if self._widget_window is None:
                 from widget_window import WidgetWindow
@@ -406,6 +485,46 @@ class SnapCapApp:
             self._widget_window.show()
         elif self._widget_window is not None:
             self._widget_window.hide()
+
+    def _set_widget_enabled(self, enabled: bool):
+        """Tray menu -> "Show desktop widget". Writes the same config flag as
+        Settings and the widget's own close button, so all three stay in sync."""
+        conf = cfg.load()
+        conf["show_desktop_widget"] = bool(enabled)
+        cfg.save(conf)
+        self._conf = conf
+        self._setup_desktop_widget()
+
+    def _sync_widget_action(self):
+        """Refresh the tray toggle's check mark right before the menu opens
+        (the widget's close button may have turned it off since the menu
+        was built)."""
+        act = getattr(self, "_widget_action", None)
+        if act is None:
+            return
+        act.blockSignals(True)
+        act.setChecked(bool(cfg.load().get("show_desktop_widget", True)))
+        act.blockSignals(False)
+
+    def _hide_widget_for_capture(self) -> bool:
+        """Fallback only: on Windows builds without WDA_EXCLUDEFROMCAPTURE
+        (older than Windows 10 2004) the always-on-top widget would be
+        baked into the screenshot, so hide it for the duration of the
+        grab. Returns True if it was hidden (caller must restore)."""
+        w = self._widget_window
+        if w is None or not w.isVisible() or w.excluded_from_capture:
+            return False
+        w.hide()
+        QApplication.processEvents()
+        from PyQt6.QtCore import QThread
+        QThread.msleep(80)  # let DWM drop the window from the composited frame
+        return True
+
+    def _restore_widget_after_capture(self):
+        if getattr(self, "_widget_hidden_for_capture", False):
+            self._widget_hidden_for_capture = False
+            if self._widget_window is not None and self._conf.get("show_desktop_widget", True):
+                self._widget_window.show()
 
     # ── Capture delay ──────────────────────────────────────────────────────────
     def _run_after_delay(self, fn):
@@ -453,14 +572,12 @@ class SnapCapApp:
 
     # ── Post-capture pipeline ──────────────────────────────────────────────────
     def _post_capture(self, img: Image.Image):
+        # Pixels are already grabbed by the time we get here - safe to bring
+        # back a widget that was hidden for the capture (fallback path).
+        self._restore_widget_after_capture()
         if not img:
             return
         conf = cfg.load()
-
-        # Keep the desktop widget's "captured this month" stat current right
-        # away, instead of waiting on its own periodic refresh timer.
-        if self._widget_window is not None and self._widget_window.isVisible():
-            self._widget_window.refresh_stat()
 
         if conf.get("capture_sound", True):
             self._play_shutter_sound()
@@ -471,7 +588,7 @@ class SnapCapApp:
             img, findings = ai.auto_redact(img, style=conf.get("redact_style", "blur"))
             if findings:
                 lang = current_language()
-                self.tray.showMessage(
+                self._tray_message(
                     t("app_name", lang) + " — Auto-Redact",
                     t("redact_msg", lang, count=len(findings)),
                     QSystemTrayIcon.MessageIcon.Information, 2500,
@@ -499,8 +616,14 @@ class SnapCapApp:
         if conf.get("auto_save"):
             import share_manager as sm
             path = sm.save_image(img)
+            # Refresh the widget's "captured this month" stat AFTER the file
+            # exists on disk. It used to run at the top of _post_capture,
+            # before save_image(), so the count it showed never included the
+            # capture that had just been taken (the 15s timer caught up later).
+            if self._widget_window is not None and self._widget_window.isVisible():
+                self._widget_window.refresh_stat()
             lang = current_language()
-            self.tray.showMessage(
+            self._tray_message(
                 t("app_name", lang), t("saved_msg", lang, filename=Path(path).name),
                 QSystemTrayIcon.MessageIcon.Information, 2000,
             )
@@ -508,7 +631,7 @@ class SnapCapApp:
             # Editor stayed closed and nothing was auto-saved — the user
             # still needs *some* confirmation the hotkey actually worked.
             lang = current_language()
-            self.tray.showMessage(
+            self._tray_message(
                 t("app_name", lang), t("captured_quiet_msg", lang),
                 QSystemTrayIcon.MessageIcon.Information, 1200,
             )
@@ -522,6 +645,7 @@ class SnapCapApp:
         try:
             from region_selector import select_region
             import capture_engine as ce
+            self._widget_hidden_for_capture = self._hide_widget_for_capture()
             result = select_region()
             if result:
                 x, y, w, h = result
@@ -529,7 +653,9 @@ class SnapCapApp:
                 self._run_after_delay(lambda: self._post_capture(ce.capture_region(x, y, w, h)))
             else:
                 log.info("Region capture cancelled by user")
+                self._restore_widget_after_capture()
         except Exception as e:
+            self._restore_widget_after_capture()
             sys.excepthook(type(e), e, e.__traceback__)
 
     def _capture_fullscreen(self):
@@ -537,8 +663,10 @@ class SnapCapApp:
         import capture_engine as ce
         def _do():
             try:
+                self._widget_hidden_for_capture = self._hide_widget_for_capture()
                 self._run_after_delay(lambda: self._post_capture(ce.capture_fullscreen()))
             except Exception as e:
+                self._restore_widget_after_capture()
                 sys.excepthook(type(e), e, e.__traceback__)
         QTimer.singleShot(300, _do)
 
@@ -547,8 +675,10 @@ class SnapCapApp:
         import capture_engine as ce
         def _do():
             try:
+                self._widget_hidden_for_capture = self._hide_widget_for_capture()
                 self._run_after_delay(lambda: self._post_capture(ce.capture_active_window()[0]))
             except Exception as e:
+                self._restore_widget_after_capture()
                 sys.excepthook(type(e), e, e.__traceback__)
         QTimer.singleShot(300, _do)
 
@@ -606,12 +736,16 @@ class SnapCapApp:
             import ai_engine as ai
             import pyperclip
 
-            result = select_region()
-            if not result:
-                log.info("Quick text capture cancelled by user")
-                return
-            x, y, w, h = result
-            img = ce.capture_region(x, y, w, h)
+            self._widget_hidden_for_capture = self._hide_widget_for_capture()
+            try:
+                result = select_region()
+                if not result:
+                    log.info("Quick text capture cancelled by user")
+                    return
+                x, y, w, h = result
+                img = ce.capture_region(x, y, w, h)
+            finally:
+                self._restore_widget_after_capture()
             text = ai.ocr_extract_text(img)
             lang = current_language()
 
@@ -619,7 +753,7 @@ class SnapCapApp:
             # extracted text) when Tesseract is missing or nothing was found —
             # don't put that placeholder text on the user's clipboard.
             if not text or text.startswith("[") and text.endswith("]"):
-                self.tray.showMessage(
+                self._tray_message(
                     t("app_name", lang), t("text_ocr_empty_msg", lang),
                     QSystemTrayIcon.MessageIcon.Information, 3000,
                 )
@@ -627,7 +761,7 @@ class SnapCapApp:
 
             pyperclip.copy(text)
             log.info("Quick text capture: copied %d characters", len(text))
-            self.tray.showMessage(
+            self._tray_message(
                 t("app_name", lang), t("text_ocr_copied_msg", lang, count=len(text)),
                 QSystemTrayIcon.MessageIcon.Information, 2500,
             )
@@ -651,8 +785,9 @@ class SnapCapApp:
 
     def _open_settings(self):
         from editor_window import SettingsDialog
+        old_lang = current_language()
         dlg = SettingsDialog()
-        dlg.exec()
+        accepted = dlg.exec() == QDialog.DialogCode.Accepted
         # Reload config in case user changed hotkeys / theme
         self._conf = cfg.load()
         # "Update Now" (Settings -> Advanced) already launched the silent
@@ -660,6 +795,15 @@ class SnapCapApp:
         # shutdown path as the automatic background flow.
         if getattr(dlg, "update_launched", False):
             self._quit_for_update()
+            return
+        if accepted:
+            # Apply what was just saved right away instead of on next launch:
+            # edited hotkeys are re-bound, the tray menu picks up the new
+            # language and hotkey hints, and the widget is rebuilt in the new
+            # language. (Before this, only the widget show/hide took effect.)
+            self._register_hotkeys()
+            self._build_tray_menu()
+            self._setup_desktop_widget(rebuild=current_language() != old_lang)
         else:
             self._setup_desktop_widget()
 

@@ -21,6 +21,7 @@ import config as cfg
 import ai_engine as ai
 import share_manager as sm
 import editor_window as ew  # shared theme palette (dark/light/system) — see apply_theme()
+import a11y
 from i18n import t, is_rtl, current_language
 
 THUMB_SIZE = 180
@@ -36,18 +37,29 @@ DARK_BG = ew.DARK_BG
 ACCENT2 = ew.ACCENT2
 TEXT_FG = ew.TEXT_FG
 TOOL_BTN = ew.TOOL_BTN
+MUTED_FG = ew.MUTED_FG
+ACCENT_FG = ew.ACCENT_FG
+ACCENT_TEXT = ew.ACCENT_TEXT
+DANGER_FG = ew.DANGER_FG
+CONTROL_BORDER = ew.CONTROL_BORDER
 
 
 def _sync_theme(theme_name: str):
     """Pull the current theme's palette from editor_window so the Library
     window's colors stay consistent with the Editor and Settings windows."""
-    global PANEL_BG, DARK_BG, ACCENT2, TEXT_FG, TOOL_BTN
+    global PANEL_BG, DARK_BG, ACCENT2, TEXT_FG, TOOL_BTN, MUTED_FG, ACCENT_FG
+    global ACCENT_TEXT, DANGER_FG, CONTROL_BORDER
     ew.apply_theme(theme_name)
     PANEL_BG = ew.PANEL_BG
     DARK_BG = ew.DARK_BG
     ACCENT2 = ew.ACCENT2
     TEXT_FG = ew.TEXT_FG
     TOOL_BTN = ew.TOOL_BTN
+    MUTED_FG = ew.MUTED_FG
+    ACCENT_FG = ew.ACCENT_FG
+    ACCENT_TEXT = ew.ACCENT_TEXT
+    DANGER_FG = ew.DANGER_FG
+    CONTROL_BORDER = ew.CONTROL_BORDER
 
 
 def pil_to_qpixmap(img: Image.Image) -> QPixmap:
@@ -92,7 +104,7 @@ class ThumbnailCard(QFrame):
         self.setStyleSheet(f"""
             QFrame {{ background: {PANEL_BG}; border-radius: 8px; border: 2px solid transparent; }}
             QFrame:hover {{ border-color: {ACCENT2}; }}
-            QFrame:focus {{ border-color: {ACCENT2}; border-width: 3px; }}
+            QFrame:focus {{ border-color: {ACCENT_TEXT}; border-width: 3px; }}
         """)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Keyboard accessibility: cards were mouse-only (no focus policy, no
@@ -101,6 +113,10 @@ class ThumbnailCard(QFrame):
         # activation + the :focus border above closes that gap.
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setToolTip(Path(path).name)
+        # Screen readers: a card is a focusable frame with no text role of
+        # its own — without an accessible name Narrator announces nothing
+        # useful ("frame"). The file name is what identifies it.
+        self.setAccessibleName(Path(path).name)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -123,7 +139,7 @@ class ThumbnailCard(QFrame):
         mtime = os.path.getmtime(path)
         dt = datetime.datetime.fromtimestamp(mtime).strftime("%d/%m %H:%M")
         date_label = QLabel(dt)
-        date_label.setStyleSheet("color: #888; font-size: 9px;")
+        date_label.setStyleSheet(f"color: {MUTED_FG}; font-size: 9px;")
         date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(date_label)
 
@@ -234,18 +250,18 @@ class LibraryWindow(QWidget):
         self.setStyleSheet(f"""
             QWidget {{ background: {DARK_BG}; color: {TEXT_FG}; font-family: 'Segoe UI'; font-size: 13px; }}
             QPushButton {{
-                background: {TOOL_BTN}; border: none; border-radius: 6px;
-                padding: 6px 14px; color: {TEXT_FG};
+                background: {TOOL_BTN}; border: 1px solid {CONTROL_BORDER}; border-radius: 6px;
+                padding: 5px 13px; color: {TEXT_FG};
             }}
             QPushButton:hover {{ background: #3b82f6; }}
-            QPushButton:focus {{ outline: none; border: 2px solid {ACCENT2}; padding: 4px 12px; }}
-            QPushButton#accent {{ background: {ACCENT2}; color: #1a1a2e; font-weight: bold; }}
-            QLineEdit {{ background: {PANEL_BG}; border: 1px solid {TOOL_BTN}; border-radius: 6px; padding: 6px 10px; color: {TEXT_FG}; }}
-            QLineEdit:focus {{ border: 2px solid {ACCENT2}; }}
+            QPushButton:focus {{ outline: none; border: 2px solid {ACCENT_TEXT}; padding: 4px 12px; }}
+            QPushButton#accent {{ background: {ACCENT2}; color: {ACCENT_FG}; font-weight: bold; }}
+            QLineEdit {{ background: {PANEL_BG}; border: 1px solid {CONTROL_BORDER}; border-radius: 6px; padding: 6px 10px; color: {TEXT_FG}; }}
+            QLineEdit:focus {{ border: 2px solid {ACCENT_TEXT}; }}
             QScrollArea {{ border: none; }}
             QFrame#card {{ background: {PANEL_BG}; border-radius: 8px; }}
-            QComboBox {{ background: {PANEL_BG}; border: 1px solid {TOOL_BTN}; border-radius: 4px; padding: 4px 8px; color: {TEXT_FG}; }}
-            QComboBox:focus {{ border: 2px solid {ACCENT2}; }}
+            QComboBox {{ background: {PANEL_BG}; border: 1px solid {CONTROL_BORDER}; border-radius: 4px; padding: 4px 8px; color: {TEXT_FG}; }}
+            QComboBox:focus {{ border: 2px solid {ACCENT_TEXT}; }}
         """)
 
     def _build_ui(self):
@@ -263,6 +279,7 @@ class LibraryWindow(QWidget):
         toolbar = QHBoxLayout()
         self._search_box = QLineEdit()
         self._search_box.setPlaceholderText(t("lib_search_placeholder", self._lang))
+        self._search_box.setAccessibleName(a11y.plain_label(t("lib_search_placeholder", self._lang)))
         self._search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self._search_box)
 
@@ -275,24 +292,26 @@ class LibraryWindow(QWidget):
         toolbar.addWidget(sort_cb)
 
         refresh_btn = QPushButton(t("lib_refresh", self._lang))
+        refresh_btn.setAccessibleName(a11y.plain_label(refresh_btn.text()))
         refresh_btn.clicked.connect(self._refresh_files)
         toolbar.addWidget(refresh_btn)
 
         open_folder_btn = QPushButton(t("lib_open_folder", self._lang))
+        open_folder_btn.setAccessibleName(a11y.plain_label(open_folder_btn.text()))
         open_folder_btn.clicked.connect(self._open_folder)
         toolbar.addWidget(open_folder_btn)
 
         left_layout.addLayout(toolbar)
 
         self._count_label = QLabel()
-        self._count_label.setStyleSheet("color: #888; font-size: 11px;")
+        self._count_label.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px;")
         left_layout.addWidget(self._count_label)
 
         # Gamification (§18.4) — a real, already-collected stat ("captured
         # this month"), not an invented points/badge system. Utility tools
         # for a single user read best as visible progress, not competition.
         self._stat_label = QLabel()
-        self._stat_label.setStyleSheet(f"color: {ACCENT2}; font-size: 11px; font-weight: bold;")
+        self._stat_label.setStyleSheet(f"color: {ACCENT_TEXT}; font-size: 11px; font-weight: bold;")
         left_layout.addWidget(self._stat_label)
 
         # Grid
@@ -308,7 +327,7 @@ class LibraryWindow(QWidget):
         self._empty_state = QLabel(t("lib_empty_none", self._lang))
         self._empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty_state.setWordWrap(True)
-        self._empty_state.setStyleSheet("color: #777; font-size: 14px; padding: 60px 20px;")
+        self._empty_state.setStyleSheet(f"color: {MUTED_FG}; font-size: 14px; padding: 60px 20px;")
 
         layout.addWidget(left, 1)
 
@@ -329,7 +348,7 @@ class LibraryWindow(QWidget):
 
         self._info_label = QLabel(t("lib_select_screenshot", self._lang))
         self._info_label.setWordWrap(True)
-        self._info_label.setStyleSheet("color: #aaa; font-size: 11px;")
+        self._info_label.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px;")
         right_layout.addWidget(self._info_label)
 
         for label, fn, is_delete in [
@@ -340,15 +359,16 @@ class LibraryWindow(QWidget):
             (t("lib_delete", self._lang), self._delete_selected, True),
         ]:
             btn = QPushButton(label)
+            btn.setAccessibleName(a11y.plain_label(label))
             if is_delete:
-                btn.setStyleSheet(f"color: {ACCENT2};")
+                btn.setStyleSheet(f"color: {DANGER_FG};")
             btn.clicked.connect(fn)
             right_layout.addWidget(btn)
 
         right_layout.addStretch()
 
         self._ocr_status = QLabel(t("lib_building_index", self._lang))
-        self._ocr_status.setStyleSheet("color: #888; font-size: 10px;")
+        self._ocr_status.setStyleSheet(f"color: {MUTED_FG}; font-size: 10px;")
         self._ocr_status.setWordWrap(True)
         right_layout.addWidget(self._ocr_status)
 
