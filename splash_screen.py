@@ -79,9 +79,11 @@ def _make_logo(size: int = 120) -> QPixmap:
     # Fallback — same gradient badge, painted procedurally.
     p = QPainter(pxm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    # STANDARDS.md §21 — shared "one company" splash+installer accent
+    # (was the teal->blue "#00d9a3"->"#3b82f6" brand gradient).
     grad = QLinearGradient(0, 0, size, size)
-    grad.setColorAt(0, QColor("#00d9a3"))
-    grad.setColorAt(1, QColor("#3b82f6"))
+    grad.setColorAt(0, QColor("#2F6FED"))
+    grad.setColorAt(1, QColor("#5B9AFF"))
     p.setBrush(grad)
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(0, 0, size, size)
@@ -133,8 +135,8 @@ class _Spinner(QWidget):
         # observed to crash the process under this PyQt6/Qt6 build; the
         # QPointF overload is the safe one.
         grad = QLinearGradient(QPointF(rect.topLeft()), QPointF(rect.bottomRight()))
-        grad.setColorAt(0, QColor("#00d9a3"))
-        grad.setColorAt(1, QColor("#3b82f6"))
+        grad.setColorAt(0, QColor("#2F6FED"))
+        grad.setColorAt(1, QColor("#5B9AFF"))
         pen = QPen(QBrush(grad), 3)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
@@ -164,7 +166,9 @@ class SplashScreen(QWidget):
             c = a11y.system_colors()
             fg, muted = c["window_text"], c["window_text"]
         else:
-            fg, muted = "#eaeaea", "#8892a4"
+            # STANDARDS.md §21 shared palette: Text/Muted text (unchanged fg,
+            # muted updated from "#8892a4" to the shared "#94A3B8").
+            fg, muted = "#EAEAEA", "#94A3B8"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 30, 0, 22)
@@ -217,15 +221,15 @@ class SplashScreen(QWidget):
         path.addRoundedRect(0.0, 0.0, float(self.width()), float(self.height()), self._radius, self._radius)
 
         # Diagonal (top-left -> bottom-right, matching assets/BRAND.md's
-        # documented 135° gradient direction) using SnapCap's own dark-theme
-        # brand colors: Surface(background) -> Surface(panel) -> a darkened
-        # tone of the brand Secondary/accent blue (#3b82f6). Deliberately
-        # NOT the full bright accent gradient (#00d9a3 -> #3b82f6) as a
-        # *background fill* — that combination was already found (and fixed
-        # elsewhere in the app, see STANDARDS.md's SnapCap status notes) to
-        # fail WCAG contrast for white text on the light teal end. The full
-        # bright gradient is still used, at readable size, on the logo mark
-        # and the spinner.
+        # documented 135° gradient direction) using STANDARDS.md §21's shared
+        # "one company" installer+splash palette: Background(#0B1220) ->
+        # Panel(#131B2E) -> a darkened tone of the shared Accent(#2F6FED).
+        # Deliberately NOT the full bright accent gradient (#2F6FED ->
+        # #5B9AFF) as a *background fill* — that combination was already
+        # found (and fixed elsewhere in the app, see STANDARDS.md's SnapCap
+        # status notes) to fail WCAG contrast for white text on the light
+        # end. The full bright gradient is still used, at readable size, on
+        # the logo mark and the spinner.
         if self._hc:
             c = a11y.system_colors()
             painter.fillPath(path, QColor(c["window"]))
@@ -233,11 +237,11 @@ class SplashScreen(QWidget):
             pen.setWidthF(2.0)
         else:
             grad = QLinearGradient(QPointF(0, 0), QPointF(self.width(), self.height()))
-            grad.setColorAt(0.0, QColor("#1a1a2e"))
-            grad.setColorAt(0.55, QColor("#16213e"))
-            grad.setColorAt(1.0, QColor("#123a63"))
+            grad.setColorAt(0.0, QColor("#0B1220"))
+            grad.setColorAt(0.55, QColor("#131B2E"))
+            grad.setColorAt(1.0, QColor("#1C438E"))
             painter.fillPath(path, grad)
-            pen = QPen(QColor(0, 217, 163, 70))
+            pen = QPen(QColor(47, 111, 237, 70))
             pen.setWidthF(1.2)
         painter.setPen(pen)
         painter.drawPath(path)

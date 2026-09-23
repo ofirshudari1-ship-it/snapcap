@@ -266,13 +266,17 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QLinearGradient, QPalette
 
-DARK  = "#0f0e17"
-PANEL = "#16213e"
-RED   = "#00d9a3"
-BLUE  = "#3b82f6"
-FG    = "#eaeaea"
-MUTED = "#8892a4"
-BORDER= "#1f3a6b"
+# STANDARDS.md §21 — unified "one company" splash+installer palette, shared
+# verbatim across OptiGuard/Playnest/ActionClip/SnapCap in these two places
+# only (installer wizard + splash screen). The running app itself (tray,
+# Library, Editor) keeps SnapCap's own brand colors — not touched here.
+DARK  = "#0B1220"
+PANEL = "#131B2E"
+ACCENT       = "#2F6FED"   # was the teal "#00d9a3" — now the shared brand blue
+ACCENT_LIGHT = "#5B9AFF"   # was "#3b82f6" — lighter partner of ACCENT
+FG    = "#EAEAEA"
+MUTED = "#94A3B8"          # was "#8892a4"
+BORDER= "#1E2A45"
 
 # ── Bilingual strings (EN / HE) ─────────────────────────────────────────────
 TR = {
@@ -347,29 +351,29 @@ STYLE = f"""
 QDialog, QWidget {{ background:{DARK}; color:{FG}; font-family:'Segoe UI'; font-size:13px; }}
 QLabel {{ color:{FG}; }}
 QPushButton {{
-    background:#1f3a6b; border:none; border-radius:8px;
+    background:{BORDER}; border:none; border-radius:8px;
     padding:8px 20px; color:{FG};
 }}
-QPushButton:hover {{ background:{BLUE}; }}
+QPushButton:hover {{ background:{ACCENT_LIGHT}; }}
 QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
-QPushButton#finish {{ background:{RED}; color:#1a1a2e; font-weight:bold; }}
+QPushButton#finish {{ background:{ACCENT}; color:{FG}; font-weight:bold; }}
 QPushButton#finish:disabled {{ background:#22223a; color:#5a5a72; }}
 QLineEdit {{
     background:{PANEL}; border:1px solid {BORDER}; border-radius:8px;
     padding:7px 11px; color:{FG};
 }}
-QLineEdit:focus {{ border-color: {RED}; }}
+QLineEdit:focus {{ border-color: {ACCENT}; }}
 QCheckBox, QRadioButton {{ color:{FG}; spacing:10px; }}
 QCheckBox::indicator {{ width:18px; height:18px; border:2px solid {BORDER}; border-radius:6px; background:{PANEL}; }}
-QCheckBox::indicator:hover {{ border-color:{RED}; }}
-QCheckBox::indicator:checked {{ background:{RED}; border-color:{RED}; }}
+QCheckBox::indicator:hover {{ border-color:{ACCENT}; }}
+QCheckBox::indicator:checked {{ background:{ACCENT}; border-color:{ACCENT}; }}
 QRadioButton::indicator {{ width:18px; height:18px; border:2px solid {BORDER}; border-radius:9px; background:{PANEL}; }}
-QRadioButton::indicator:hover {{ border-color:{RED}; }}
-QRadioButton::indicator:checked {{ background:{RED}; border-color:{RED}; }}
+QRadioButton::indicator:hover {{ border-color:{ACCENT}; }}
+QRadioButton::indicator:checked {{ background:{ACCENT}; border-color:{ACCENT}; }}
 QProgressBar {{
     background:{PANEL}; border:none; border-radius:7px; height:14px; text-align: center;
 }}
-QProgressBar::chunk {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {RED}, stop:1 {BLUE}); border-radius:7px; }}
+QProgressBar::chunk {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 {ACCENT}, stop:1 {ACCENT_LIGHT}); border-radius:7px; }}
 QTextEdit {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:8px; color:#aaa; font-size:11px; }}
 """
 
@@ -377,15 +381,15 @@ QTextEdit {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:8px; c
 def make_banner(w=550, h=96) -> QPixmap:
     px = QPixmap(w, h)
     grad = QLinearGradient(0, 0, w, h)
-    grad.setColorAt(0, QColor("#0f3460"))
-    grad.setColorAt(1, QColor("#16213e"))
+    grad.setColorAt(0, QColor(DARK))
+    grad.setColorAt(1, QColor(PANEL))
     p = QPainter(px)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.fillRect(px.rect(), grad)
     # Gradient S badge
     badge = QLinearGradient(20, 15, 80, 75)
-    badge.setColorAt(0, QColor(RED))
-    badge.setColorAt(1, QColor(BLUE))
+    badge.setColorAt(0, QColor(ACCENT))
+    badge.setColorAt(1, QColor(ACCENT_LIGHT))
     p.setBrush(badge)
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(20, 16, 62, 62)
@@ -400,7 +404,7 @@ def make_banner(w=550, h=96) -> QPixmap:
     p.setPen(QColor(MUTED))
     p.drawText(100, 58, 420, 25, Qt.AlignmentFlag.AlignLeft, "The screenshot tool the market was missing")
     p.setFont(QFont("Segoe UI", 9))
-    p.setPen(QColor(RED))
+    p.setPen(QColor(ACCENT))
     p.drawText(w - 90, 12, 80, 20, Qt.AlignmentFlag.AlignRight, f"v{APP_VER}")
     p.end()
     return px
@@ -418,8 +422,8 @@ def make_icon(size=64) -> QIcon:
     p = QPainter(px)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     grad = QLinearGradient(0, 0, size, size)
-    grad.setColorAt(0, QColor(RED))
-    grad.setColorAt(1, QColor(BLUE))
+    grad.setColorAt(0, QColor(ACCENT))
+    grad.setColorAt(1, QColor(ACCENT_LIGHT))
     p.setBrush(grad)
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(0, 0, size, size)
@@ -466,7 +470,7 @@ class LanguageToggle(QWidget):
             r.setStyleSheet(f"""
                 QRadioButton {{ font-size:12px; padding:6px 12px; background:{PANEL};
                                 border:1px solid {BORDER}; border-radius:14px; }}
-                QRadioButton:hover {{ border-color:{RED}; }}
+                QRadioButton:hover {{ border-color:{ACCENT}; }}
                 QRadioButton::indicator {{ width:12px; height:12px; }}
             """)
             self._group.addButton(r)
@@ -826,14 +830,18 @@ class SetupWizard(QDialog):
         # The app-level `QPushButton#finish` ID-selector rule in STYLE does
         # not reliably apply to this specific button on Windows (confirmed by
         # rendering it: the button kept the plain QPushButton look instead of
-        # the intended teal fill, leaving its #1a1a2e text nearly invisible -
-        # this is what users were reporting as unreadable installer buttons).
+        # the intended accent fill, leaving its text nearly invisible - this
+        # is what users were reporting as unreadable installer buttons).
         # Setting the same rule directly on the widget bypasses whatever is
         # blocking the selector match and is guaranteed to apply.
+        # Text color: white/FG, not the old dark-navy #1a1a2e. That dark text
+        # worked on the old light-teal ACCENT (#00d9a3) but STANDARDS.md §21.1
+        # confirms white-on-{ACCENT} is 4.9:1 (passes AA) with the new,
+        # darker, medium-blue ACCENT (#2F6FED) — dark navy text would fail.
         self._next_btn.setStyleSheet(f"""
-            QPushButton {{ background:{RED}; color:#1a1a2e; font-weight:bold;
+            QPushButton {{ background:{ACCENT}; color:{FG}; font-weight:bold;
                            border:none; border-radius:8px; padding:8px 20px; }}
-            QPushButton:hover {{ background:#00f0b5; }}
+            QPushButton:hover {{ background:{ACCENT_LIGHT}; }}
             QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
         """)
         self._next_btn.clicked.connect(self._go_next)
@@ -912,7 +920,7 @@ def main():
     # in dark mode, Qt6 seeds QPalette from the system theme and some builds
     # keep using that palette's (light-mode, near-black) ButtonText/WindowText
     # for QPushButton regardless of the QSS `color` property - this is what
-    # made "Next"/"Finish" render as unreadable dark text on a dark/teal fill.
+    # made "Next"/"Finish" render as unreadable dark text on a dark/accent fill.
     # Setting an explicit dark QPalette (including the Disabled group) closes
     # that gap for every widget, not just the ones the stylesheet covers.
     palette = QPalette()
@@ -923,8 +931,11 @@ def main():
     palette.setColor(QPalette.ColorRole.Button, QColor(BORDER))
     palette.setColor(QPalette.ColorRole.ButtonText, QColor(FG))
     palette.setColor(QPalette.ColorRole.BrightText, QColor("white"))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(RED))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#1a1a2e"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(ACCENT))
+    # White/FG text on the new medium-blue ACCENT (#2F6FED), not the old
+    # dark-navy #1a1a2e that only worked against the old light-teal ACCENT —
+    # see STANDARDS.md §21.1 contrast note above the Next-button stylesheet.
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(FG))
     disabled_fg = QColor("#5a5a72")
     for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText):
         palette.setColor(QPalette.ColorGroup.Disabled, role, disabled_fg)
