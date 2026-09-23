@@ -261,7 +261,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge">v1.10.0</span>
+      <span class="ver-badge">v1.11.0</span>
     </div>
     <nav class="links">
       <a href="#how">How it works</a>
@@ -293,7 +293,7 @@
         <a class="btn primary" href="#install">⬇ Download for Windows</a>
         <a class="btn ghost" href="#features">See what it does ↓</a>
       </div>
-      <p class="hero-meta">v1.10.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.10.0.exe</span> · ~140 MB</p>
+      <p class="hero-meta">v1.11.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.11.0.exe</span> · ~140 MB</p>
       <div class="badge-row">
         <span class="mini-badge">🔒 Local OCR &amp; redaction</span>
         <span class="mini-badge">🌗 Auto dark/light</span>
@@ -519,6 +519,62 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Closes the items the previous audit pass left open — real Hebrew/English text everywhere, a corrected uninstall registry location, and High Contrast support for first-run setup.</p>
+        <ul class="cl-list">
+          <li><b>Fixed</b> hardcoded English text in the About dialog, the scrolling-capture progress dialog, the splash screen, the region selector, and Settings validation messages — now properly localized in both languages.</li>
+          <li><b>Fixed</b> the uninstall registry entry using the wrong hive (HKCU instead of HKLM) — corrected to match the rest of the per-machine install.</li>
+          <li><b>Added</b> Windows High Contrast support to the first-run onboarding wizard, plus a visible focus ring on its "Skip" button.</li>
+          <li><b>Fixed</b> two hardcoded colors in the editor that failed WCAG contrast in light mode.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.10.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Evidence-based audit pass: the desktop widget no longer appears inside its own screenshots, Windows High Contrast support was added across the app, keyboard focus rings are now visible everywhere, config saves are safer, and update files are verified more strictly.</p>
+        <ul class="cl-list">
+          <li><b>Fixed</b> the desktop widget appearing inside its own screenshots — it's now excluded from screen capture via <span class="mono">WDA_EXCLUDEFROMCAPTURE</span>.</li>
+          <li><b>Added</b> Windows High Contrast support across the editor, widget, and splash screen — the user's own system colors are used instead of the brand palette.</li>
+          <li><b>Fixed</b> Settings changes to hotkeys and language needing a restart — they now apply immediately.</li>
+          <li><b>Fixed</b> config saves so they're atomic and deep-merged — a crash mid-write can no longer wipe your settings.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.9.0</span><span class="cl-date">2026-09-22</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">A small always-on-top floating panel with the real "captured this month" stat, plus one-click Capture now / Open Library — without opening the full app.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.8.1</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">Splash screen rebuilt from scratch: the real logo asset, a rounded gradient background, a genuine spinner instead of a fake progress bar, and a measured minimum display time.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.8.0</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">RTL precision, keyboard accessibility, and polish</p>
+        <ul class="cl-list">
+          <li><b>Fixed</b> the Library window not mirroring or translating in Hebrew — it used to stay English/LTR regardless of the app language.</li>
+          <li><b>Added</b> visible keyboard focus rings across the Editor, Library, and Settings windows.</li>
+          <li><b>Fixed</b> screenshot thumbnails in the Library grid being mouse-only — they're now keyboard-navigable (Tab, Enter/Space).</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.7.0</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Update now means one click: SnapCap downloads, verifies, and silently installs the new version itself, then relaunches — no more downloading the installer by hand and clicking through the setup wizard.</p>
+        <ul class="cl-list">
+          <li><b>Added</b> Settings → Advanced → "Update Now", plus an opt-in fully-automatic update mode.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.6.1</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">The Library window now follows the Theme setting (dark / light / system) like the Editor and Settings windows, and its thumbnail grid re-flows correctly when the window is resized.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.6.0</span><span class="cl-date">2026-09-20</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">A new Startup settings group: skip the splash screen on a Windows-boot launch, and silence the "running in the tray" notification once autostart is routine.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.5.0</span><span class="cl-date">2026-09-20</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">Four capture-flow upgrades: a countdown delay before the grab (so you can open a dropdown menu first), an optional shutter sound, a "skip the editor" quiet mode, and fillable shapes.</p>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.4.2</span><span class="cl-date">2026-09-18</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Real automatic-update checker; GitHub is now the canonical source for code and releases.</p>
         <ul class="cl-list">
@@ -587,14 +643,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap v1.10.0 for Windows 10/11</h3>
-        <div class="path">SnapCap-Setup-1.10.0.exe</div>
+        <h3>SnapCap v1.11.0 for Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.11.0.exe</div>
         <div class="facts">≈140 MB · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
       </div>
-      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.10.0/SnapCap-Setup-1.10.0.exe">Download installer</a>
+      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.11.0/SnapCap-Setup-1.11.0.exe">Download installer</a>
     </div>
     <ol class="install-steps">
-      <li>Run <span class="mono">SnapCap-Setup-1.10.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
+      <li>Run <span class="mono">SnapCap-Setup-1.11.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
       <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
       <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
       <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
@@ -660,7 +716,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge">v1.10.0</span>
+      <span class="ver-badge">v1.11.0</span>
     </div>
     <nav class="links">
       <a href="#how-he">איך זה עובד</a>
@@ -691,7 +747,7 @@
         <a class="btn primary" href="#install-he">⬇ הורדה ל-Windows</a>
         <a class="btn ghost" href="#features-he">לראות מה זה עושה ↓</a>
       </div>
-      <p class="hero-meta">v1.10.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.10.0.exe</span> · כ-140 MB</p>
+      <p class="hero-meta">v1.11.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.11.0.exe</span> · כ-140 MB</p>
       <div class="badge-row">
         <span class="mini-badge">🔒 OCR והסתרה מקומיים</span>
         <span class="mini-badge">🌗 כהה/בהיר אוטומטי</span>
@@ -917,6 +973,62 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סוגר את הפריטים שנשארו פתוחים מסבב הביקורת הקודם — טקסט אמיתי בעברית ובאנגלית בכל מקום, מיקום נכון לרישום ההסרה, ותמיכת High Contrast להגדרה הראשונית.</p>
+        <ul class="cl-list">
+          <li><b>תוקן</b> טקסט קשיח באנגלית בחלון האודות, בדיאלוג התקדמות צילום הגלילה, במסך הפתיחה, בבורר האזור, ובהודעות הוולידציה של ההגדרות — מתורגם כעת כראוי בשתי השפות.</li>
+          <li><b>תוקן</b> רישום ההסרה שהשתמש ב-hive הלא נכון (HKCU במקום HKLM) — תוקן כך שיתאים לשאר ההתקנה שהיא per-machine.</li>
+          <li><b>נוסף</b> תמיכת Windows High Contrast לאשף ההגדרה הראשונית (onboarding), וגם טבעת פוקוס נראית לכפתור "דלג" שלו.</li>
+          <li><b>תוקן</b> שני צבעים קשיחים בעורך שנכשלו בניגודיות WCAG במצב בהיר.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.10.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סבב ביקורת מבוסס-ראיות: הווידג'ט של שולחן העבודה כבר לא מופיע בתוך צילומי המסך של עצמו, נוספה תמיכה ב-Windows High Contrast בכל האפליקציה, טבעות פוקוס למקלדת נראות עכשיו בכל מקום, שמירת הקונפיג בטוחה יותר, וקבצי העדכון מאומתים בקפדנות רבה יותר.</p>
+        <ul class="cl-list">
+          <li><b>תוקן</b> הווידג'ט שהופיע בתוך צילומי המסך של עצמו — הוא מוחרג כעת מצילום מסך באמצעות <span class="mono">WDA_EXCLUDEFROMCAPTURE</span>.</li>
+          <li><b>נוסף</b> תמיכה ב-Windows High Contrast בעורך, בווידג'ט ובמסך הפתיחה — צבעי המערכת של המשתמש משמשים במקום פלטת המותג.</li>
+          <li><b>תוקן</b> שינויים בהגדרות לקיצורים ולשפה שדרשו הפעלה מחדש — הם חלים כעת מיד.</li>
+          <li><b>תוקן</b> שמירת הקונפיג כך שהיא אטומית וממוזגת לעומק — קריסה באמצע כתיבה כבר לא יכולה למחוק את ההגדרות שלך.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.9.0</span><span class="cl-date">2026-09-22</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">פאנל צף קטן ותמיד-עליון עם הסטטיסטיקה האמיתית של "צולם החודש", ולחיצה אחת לצילום מיידי / פתיחת ספרייה — בלי לפתוח את האפליקציה המלאה.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.8.1</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">מסך הפתיחה נכתב מחדש מאפס: נכס הלוגו האמיתי, רקע גרדיאנט מעוגל, ספינר אמיתי במקום פס התקדמות מזויף, וזמן תצוגה מינימלי שנמדד בפועל.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.8.0</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">דיוק RTL, נגישות מקלדת ופוליש</p>
+        <ul class="cl-list">
+          <li><b>תוקן</b> חלון הספרייה שלא השתקף ולא תורגם בעברית — הוא נשאר באנגלית/LTR בלי קשר לשפת האפליקציה.</li>
+          <li><b>נוסף</b> טבעות פוקוס נראות למקלדת בחלונות העורך, הספרייה וההגדרות.</li>
+          <li><b>תוקן</b> תמונות ממוזערות של צילומים בספרייה שהיו נגישות רק לעכבר — הן ניתנות כעת לניווט במקלדת (Tab, Enter/Space).</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.7.0</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">עדכון עכשיו הוא לחיצה אחת: SnapCap מוריד, מאמת ומתקין את הגרסה החדשה בעצמו בשקט, ואז מפעיל את עצמו מחדש — בלי להוריד את קובץ ההתקנה ביד ולעבור את אשף ההתקנה.</p>
+        <ul class="cl-list">
+          <li><b>נוסף</b> הגדרות ← מתקדם ← "עדכן עכשיו", וגם מצב עדכון אוטומטי מלא (אופציונלי).</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.6.1</span><span class="cl-date">2026-09-21</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">חלון הספרייה עוקב כעת אחרי הגדרת ערכת הנושא (כהה / בהיר / מערכת) כמו העורך וההגדרות, ורשת התמונות הממוזערות שלו מסתדרת מחדש כראוי כששינוי גודל החלון.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.6.0</span><span class="cl-date">2026-09-20</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">קבוצת הגדרות חדשה להפעלה: דילוג על מסך הפתיחה בהפעלה בעת אתחול Windows, והשתקת ההתראה "פועל במגש המערכת" ברגע שההפעלה האוטומטית הופכת לשגרתית.</p>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.5.0</span><span class="cl-date">2026-09-20</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);">ארבעה שדרוגים לתהליך הצילום: השהיה עם ספירה לאחור לפני הצילום (כדי שתספיקו לפתוח תפריט נפתח קודם), צליל תריס אופציונלי, מצב שקט של "דלג על העורך", וצורות שניתן למלא.</p>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.4.2</span><span class="cl-date">2026-09-18</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">בדיקת עדכונים אוטומטית אמיתית; GitHub הוא כעת המקור הרשמי</p>
         <ul class="cl-list">
@@ -985,14 +1097,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap v1.10.0 עבור Windows 10/11</h3>
-        <div class="path">SnapCap-Setup-1.10.0.exe</div>
+        <h3>SnapCap v1.11.0 עבור Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.11.0.exe</div>
         <div class="facts">כ-140 MB · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
       </div>
-      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.10.0/SnapCap-Setup-1.10.0.exe">הורדת קובץ ההתקנה</a>
+      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.11.0/SnapCap-Setup-1.11.0.exe">הורדת קובץ ההתקנה</a>
     </div>
     <ol class="install-steps">
-      <li>מריצים את <span class="mono">SnapCap-Setup-1.10.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
+      <li>מריצים את <span class="mono">SnapCap-Setup-1.11.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
       <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
       <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
       <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>

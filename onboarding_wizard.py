@@ -14,19 +14,59 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QColor, QPainter, QPixmap, QLinearGradient
 from PyQt6.QtCore import Qt
 
+import a11y
 import config as cfg
 from i18n import t, is_rtl, current_language
 
 # ── Style constants ────────────────────────────────────────────────────────────
-_BG      = "#0f0e17"
-_CARD    = "#16213e"
-_ACCENT  = "#00d9a3"
-_ACCENT2 = "#3b82f6"
-_TEXT    = "#eaeaea"
-_MUTED   = "#8892a4"
-_BORDER  = "#1f3a6b"
+# Brand palette (default). STANDARDS.md §20.2 — when a Windows Contrast Theme
+# is active, _refresh_palette() below reassigns these module-level names to
+# the user's own system colors instead, the same way editor_window.apply_theme()
+# already does for the editor/library. Every helper in this file (_btn, _h,
+# _p, _sep, _hotkey_row) and every page class reads these names at build
+# time, so refreshing them before building the dialog/pages is enough —
+# no other code needs to change.
+_BRAND_BG      = "#0f0e17"
+_BRAND_CARD    = "#16213e"
+_BRAND_ACCENT  = "#00d9a3"
+_BRAND_ACCENT2 = "#3b82f6"
+_BRAND_TEXT    = "#eaeaea"
+_BRAND_MUTED   = "#8892a4"
+_BRAND_BORDER  = "#1f3a6b"
+_BRAND_BTN_PRIMARY_TEXT = "#1a1a2e"
 
-_BASE_SS = f"""
+_BG      = _BRAND_BG
+_CARD    = _BRAND_CARD
+_ACCENT  = _BRAND_ACCENT
+_ACCENT2 = _BRAND_ACCENT2
+_TEXT    = _BRAND_TEXT
+_MUTED   = _BRAND_MUTED
+_BORDER  = _BRAND_BORDER
+_BTN_PRIMARY_TEXT = _BRAND_BTN_PRIMARY_TEXT
+
+
+def _refresh_palette():
+    """Call before building the dialog or any page. Swaps the module-level
+    color constants to the user's system colors while a Windows Contrast
+    Theme is active, or restores the brand palette otherwise."""
+    global _BG, _CARD, _ACCENT, _ACCENT2, _TEXT, _MUTED, _BORDER, _BTN_PRIMARY_TEXT
+    if a11y.is_high_contrast():
+        c = a11y.system_colors()
+        _BG, _CARD = c["window"], c["window"]
+        _ACCENT, _ACCENT2 = c["highlight"], c["highlight"]
+        _TEXT, _MUTED = c["window_text"], c["window_text"]
+        _BORDER = c["window_text"]
+        _BTN_PRIMARY_TEXT = c["highlight_text"]
+    else:
+        _BG, _CARD = _BRAND_BG, _BRAND_CARD
+        _ACCENT, _ACCENT2 = _BRAND_ACCENT, _BRAND_ACCENT2
+        _TEXT, _MUTED = _BRAND_TEXT, _BRAND_MUTED
+        _BORDER = _BRAND_BORDER
+        _BTN_PRIMARY_TEXT = _BRAND_BTN_PRIMARY_TEXT
+
+
+def _base_ss() -> str:
+    return f"""
     QDialog, QWidget {{ background: {_BG}; color: {_TEXT}; font-family: 'Segoe UI'; }}
     QLabel {{ color: {_TEXT}; }}
     QLineEdit {{
@@ -48,19 +88,28 @@ _BASE_SS = f"""
 
 def _btn(text: str, primary=True) -> QPushButton:
     b = QPushButton(text)
+    hc = a11y.is_high_contrast()
     if primary:
+        # Brand-mode hover/pressed shades stay as originally designed;
+        # under High Contrast the accent (already the user's own
+        # "highlight" system color) is used for hover instead, so nothing
+        # here paints a color the user didn't choose.
+        hover = _ACCENT2 if hc else "#00b386"
+        pressed_rule = "" if hc else "QPushButton:pressed { background: #009973; }"
         b.setStyleSheet(f"""
-            QPushButton {{ background: {_ACCENT}; color: #1a1a2e; border: none;
+            QPushButton {{ background: {_ACCENT}; color: {_BTN_PRIMARY_TEXT}; border: none;
                            border-radius: 8px; padding: 10px 28px; font-size: 14px;
                            font-weight: bold; }}
-            QPushButton:hover {{ background: #00b386; }}
-            QPushButton:pressed {{ background: #009973; }}
+            QPushButton:hover {{ background: {hover}; }}
+            QPushButton:focus {{ border: 2px solid {_TEXT}; }}
+            {pressed_rule}
         """)
     else:
         b.setStyleSheet(f"""
             QPushButton {{ background: transparent; color: {_MUTED}; border: 1px solid {_BORDER};
                            border-radius: 8px; padding: 10px 22px; font-size: 13px; }}
             QPushButton:hover {{ color: {_TEXT}; border-color: {_TEXT}; }}
+            QPushButton:focus {{ border: 2px solid {_ACCENT2}; }}
         """)
     b.setCursor(Qt.CursorShape.PointingHandCursor)
     return b
@@ -442,7 +491,13 @@ class OnboardingWizard(QDialog):
         self.setWindowFlags(
             Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.setStyleSheet(_BASE_SS)
+        # STANDARDS.md §20.2 — was the only first-run/main window that didn't
+        # honor Windows High Contrast (main.py/widget_window.py/splash_screen.py/
+        # editor_window.py already did). _refresh_palette() must run before
+        # setStyleSheet()/_build() since every color below is read from the
+        # module-level constants it sets.
+        _refresh_palette()
+        self.setStyleSheet(_base_ss())
         self._apply_direction()
         self._build()
         self._center()
@@ -478,7 +533,17 @@ class OnboardingWizard(QDialog):
             dl.addWidget(d)
         dl.addStretch()
         self._skip_btn = QPushButton(t("skip_setup", self._lang))
-        self._skip_btn.setStyleSheet(f"background: transparent; color: {_MUTED}; border: none; font-size: 12px;")
+        # Setting a stylesheet directly on a widget stops Qt from cascading
+        # the dialog-level "QPushButton:focus" rule (_base_ss()) down to it
+        # for states this local sheet doesn't also declare — so without its
+        # own explicit :focus rule, Tab-ing to Skip showed no focus ring at
+        # all. Back/Next (_btn()) had the same latent gap; fixed there too.
+        self._skip_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {_MUTED}; border: 1px solid transparent;
+                           font-size: 12px; border-radius: 4px; padding: 2px 6px; }}
+            QPushButton:hover {{ color: {_TEXT}; }}
+            QPushButton:focus {{ border: 2px solid {_ACCENT2}; outline: none; }}
+        """)
         self._skip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._skip_btn.clicked.connect(self._skip)
         dl.addWidget(self._skip_btn)

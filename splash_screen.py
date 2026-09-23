@@ -30,6 +30,7 @@ from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPointF, 
 
 import a11y
 import config as cfg
+from i18n import t, current_language
 
 # Enforced minimum time the splash stays visible, measured from show() to
 # the moment startup work finishes (see show_splash_then) — not just a
@@ -195,7 +196,7 @@ class SplashScreen(QWidget):
         self._spinner = _Spinner()
         loading_row.addWidget(self._spinner)
 
-        self._status = QLabel("Starting…")
+        self._status = QLabel(t("splash_starting", current_language()))
         self._status.setStyleSheet(f"color: {muted}; font-size: 10px; font-family: 'Segoe UI'; background: transparent;")
         loading_row.addWidget(self._status)
 

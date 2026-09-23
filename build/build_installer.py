@@ -66,17 +66,23 @@ def _read_existing_install_dir() -> "Path | None":
     """Reads InstallLocation from the registry entry a previous install
     wrote (see _write_registry_entry) — lets --silent update in place
     instead of guessing a default path, and lets it tell an update apart
-    from a first-time silent install (no existing entry -> fresh install)."""
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY, 0, winreg.KEY_READ)
+    from a first-time silent install (no existing entry -> fresh install).
+
+    Checks HKLM first — where the entry is written per STANDARDS.md §7.1,
+    matching the per-machine Program Files install — then falls back to
+    HKCU so an in-place update over an install made by an older SnapCap
+    build (which wrote the entry to HKCU) still finds its install dir."""
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
         try:
-            val, _ = winreg.QueryValueEx(key, "InstallLocation")
-        finally:
-            winreg.CloseKey(key)
-        if val and Path(val).parent.exists():
-            return Path(val)
-    except Exception:
-        pass
+            key = winreg.OpenKey(hive, REG_KEY, 0, winreg.KEY_READ)
+            try:
+                val, _ = winreg.QueryValueEx(key, "InstallLocation")
+            finally:
+                winreg.CloseKey(key)
+            if val and Path(val).parent.exists():
+                return Path(val)
+        except Exception:
+            pass
     return None
 
 
@@ -96,8 +102,17 @@ def _create_shortcut(target: Path, link: Path, arguments: str = "", log=lambda m
 
 
 def _write_registry_entry(install_dir: Path, log=lambda m: None):
+    """Writes the uninstall entry to HKLM — SnapCap installs per-machine
+    under %PROGRAMFILES% and the installer requests admin elevation via
+    --uac-admin (see build below), so HKLM is the correct hive per
+    STANDARDS.md §7.1's table for this tool (unlike a per-user tool such
+    as Playnest, which intentionally uses HKCU). Was HKCU here, a
+    mismatch with what §7.1 documents and with the rest of the install
+    (Program Files, admin elevation) — fixed 2026-09-23. Any stale HKCU
+    entry from an older SnapCap build is cleaned up by main.py's
+    --uninstall handler, which checks both hives."""
     try:
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, REG_KEY)
+        key = winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, REG_KEY)
         winreg.SetValueEx(key, "DisplayName",      0, winreg.REG_SZ, "SnapCap")
         winreg.SetValueEx(key, "DisplayVersion",   0, winreg.REG_SZ, APP_VER)
         winreg.SetValueEx(key, "Publisher",        0, winreg.REG_SZ, "SnapCap")

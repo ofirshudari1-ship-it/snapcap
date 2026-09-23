@@ -688,8 +688,9 @@ class SnapCapApp:
             from PyQt6.QtWidgets import QProgressDialog
 
             def _start():
-                progress = QProgressDialog("Scrolling and stitching…", "Cancel", 0, 100)
-                progress.setWindowTitle("SnapCap — Scrolling Capture")
+                lang = current_language()
+                progress = QProgressDialog(t("scroll_capture_progress", lang), "Cancel", 0, 100)
+                progress.setWindowTitle(t("scroll_capture_dialog_title", lang))
                 progress.setMinimumDuration(0)
                 progress.setValue(0)
                 progress.show()
@@ -808,20 +809,24 @@ class SnapCapApp:
             self._setup_desktop_widget()
 
     def _show_about(self):
+        lang = current_language()
         msg = QMessageBox()
-        msg.setWindowTitle("About SnapCap")
+        msg.setWindowTitle(t("about_title", lang))
+        msg.setLayoutDirection(
+            Qt.LayoutDirection.RightToLeft if is_rtl(lang) else Qt.LayoutDirection.LeftToRight
+        )
         msg.setIconPixmap(_make_tray_icon().pixmap(48, 48))
         msg.setText(
             f"<h2>SnapCap v{APP_VERSION}</h2>"
-            "<p>The screenshot tool the market was missing.</p>"
+            f"<p>{t('about_tagline', lang)}</p>"
             "<ul>"
-            "<li>🎯 Smart region / window / fullscreen / scrolling capture</li>"
-            "<li>✏️ Full annotation — arrows, shapes, steps, callouts</li>"
-            "<li>🔒 AI PII auto-redaction (emails, keys, IDs, phones)</li>"
-            "<li>🔍 OCR with table extraction (CSV / Markdown export)</li>"
-            "<li>🤖 Claude AI — summarize, alt-text, bug reports, translate</li>"
-            "<li>📚 Searchable screenshot library with OCR index</li>"
-            "<li>☁️ Imgur, custom webhook, Slack, Teams, email sharing</li>"
+            f"<li>🎯 {t('about_feat_capture', lang)}</li>"
+            f"<li>✏️ {t('about_feat_annotate', lang)}</li>"
+            f"<li>🔒 {t('about_feat_redact', lang)}</li>"
+            f"<li>🔍 {t('about_feat_ocr', lang)}</li>"
+            f"<li>🤖 {t('about_feat_ai', lang)}</li>"
+            f"<li>📚 {t('about_feat_library', lang)}</li>"
+            f"<li>☁️ {t('about_feat_share', lang)}</li>"
             "</ul>"
             f"<p style='color:#8892a4;'>© 2026 SnapCap · <a href='https://github.com/snapcap' style='color:#00d9a3;'>github.com/snapcap</a></p>"
         )
@@ -848,6 +853,40 @@ def _should_skip_splash(argv: list, conf: dict) -> bool:
     return "--autostart" in argv and conf.get("skip_splash_on_autostart", True)
 
 
+def _is_admin() -> bool:
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _relaunch_uninstall_elevated() -> bool:
+    """Re-launches `SnapCap.exe --uninstall` with a UAC prompt and returns
+    True if the elevation request itself succeeded (the actual removal then
+    happens in that elevated child process, not here).
+
+    SnapCap is installed per-machine under %PROGRAMFILES% (the installer
+    requests elevation via --uac-admin — see build/build_installer.py), so
+    both its uninstall registry entry (HKLM, per STANDARDS.md §7.1) and its
+    install folder under Program Files need admin rights to remove. But
+    SnapCap.exe itself carries no admin manifest for normal, everyday runs
+    (it would be a bad prompt-on-every-launch experience for a tray app) —
+    so when Windows invokes the UninstallString unelevated, this step is
+    what gets the elevation the actual removal needs."""
+    try:
+        import ctypes
+        args = " ".join(a for a in sys.argv[1:] if a != "--uninstall") + " --uninstall"
+        rc = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, args.strip(), None, 1
+        )
+        # ShellExecuteW returns a value > 32 on success; 5 means the user
+        # declined the UAC prompt.
+        return int(rc) > 32
+    except Exception:
+        return False
+
+
 def _run_uninstall():
     """
     Handle `SnapCap.exe --uninstall`, the command the installer registers
@@ -856,6 +895,16 @@ def _run_uninstall():
     removing it.
     """
     import shutil, winreg
+
+    if not _is_admin():
+        # Hand off to an elevated copy of ourselves rather than silently
+        # failing to delete the HKLM registry entry / Program Files folder
+        # below (see _relaunch_uninstall_elevated). If the user declines
+        # the UAC prompt, fall through and try anyway on a best-effort
+        # basis — some of the cleanup (shortcuts, startup entry) doesn't
+        # need admin rights and can still succeed.
+        if _relaunch_uninstall_elevated():
+            sys.exit(0)
 
     install_dir = Path(sys.executable).parent
     removed = []
@@ -893,12 +942,17 @@ def _run_uninstall():
     except Exception:
         pass
 
-    # Uninstall registry entry
-    try:
-        winreg.DeleteKey(winreg.HKEY_CURRENT_USER,
-                         r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SnapCap")
-    except Exception:
-        pass
+    # Uninstall registry entry. SnapCap is a per-machine install (Program
+    # Files + the installer's --uac-admin elevation), so the entry now
+    # lives under HKLM per STANDARDS.md §7.1 (build/build_installer.py
+    # writes it there — see _write_registry_entry). HKCU is also tried,
+    # best-effort, so upgrading an install made by an older SnapCap build
+    # (which wrote to HKCU) still cleans up its leftover entry.
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            winreg.DeleteKey(hive, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SnapCap")
+        except Exception:
+            pass
 
     # Ask whether to also delete user data (config, library, OCR index) —
     # default "no", per the project standard (destructive-by-default is a footgun)

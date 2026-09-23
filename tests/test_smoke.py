@@ -1331,6 +1331,12 @@ class TestAccessibilityHelpers(unittest.TestCase):
             pal = ew._THEMES[theme]
             for bg in (pal["DARK_BG"], pal["PANEL_BG"]):
                 self.assertGreaterEqual(ratio(pal["MUTED_FG"], bg), 4.5, (theme, bg))
+                # Editor panel: the AI-tools group captions (MUTED_FG) and the
+                # "Claude API connected" status text (ACCENT_TEXT) both used
+                # to be hardcoded hex literals that ignored the active theme
+                # and fell under 2:1 in light mode — see _refresh_ai_status
+                # and the AI-tools accordion in editor_window.py.
+                self.assertGreaterEqual(ratio(pal["ACCENT_TEXT"], bg), 4.5, (theme, bg))
             self.assertGreaterEqual(ratio(pal["ACCENT_FG"], pal["ACCENT2"]), 4.5, theme)
 
 
@@ -1415,6 +1421,55 @@ class TestSplashPaints(unittest.TestCase):
                     s.grab()
                 finally:
                     s.close()
+
+
+class TestOnboardingWizardAccessibility(unittest.TestCase):
+    """STANDARDS.md §20.2 — the onboarding wizard was the only first-run/
+    main window that didn't honor Windows High Contrast; the Skip button
+    also had no visible focus ring. See onboarding_wizard._refresh_palette()
+    and OnboardingWizard._build()."""
+
+    def _make_app(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        self._app = QApplication.instance() or QApplication(sys.argv)
+
+    def test_renders_normal_and_high_contrast(self):
+        self._make_app()
+        import onboarding_wizard as ow
+        for hc in (False, True):
+            with unittest.mock.patch("a11y.is_high_contrast", return_value=hc):
+                w = ow.OnboardingWizard()
+                try:
+                    w.grab()  # runs paintEvent/style resolution for every page
+                finally:
+                    w.close()
+
+    def test_refresh_palette_uses_system_colors_under_high_contrast(self):
+        import onboarding_wizard as ow
+        fake = {"window": "#010101", "window_text": "#020202",
+                "highlight": "#030303", "highlight_text": "#040404",
+                "button": "#050505", "button_text": "#060606", "gray_text": "#070707"}
+        with unittest.mock.patch("a11y.is_high_contrast", return_value=True), \
+             unittest.mock.patch("a11y.system_colors", return_value=fake):
+            ow._refresh_palette()
+            self.assertEqual(ow._BG, fake["window"])
+            self.assertEqual(ow._TEXT, fake["window_text"])
+            self.assertEqual(ow._ACCENT, fake["highlight"])
+        # Restore the brand palette so later tests in this run aren't
+        # affected by this module-level mutation.
+        with unittest.mock.patch("a11y.is_high_contrast", return_value=False):
+            ow._refresh_palette()
+        self.assertEqual(ow._BG, ow._BRAND_BG)
+
+    def test_skip_button_has_visible_focus_style(self):
+        self._make_app()
+        import onboarding_wizard as ow
+        w = ow.OnboardingWizard()
+        try:
+            self.assertIn(":focus", w._skip_btn.styleSheet())
+        finally:
+            w.close()
 
 
 if __name__ == "__main__":

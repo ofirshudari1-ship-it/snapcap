@@ -11,6 +11,8 @@ from PyQt6.QtGui import (
 from PIL import Image
 import mss
 
+from i18n import t, current_language
+
 
 def grab_all_screens_pil() -> Image.Image:
     with mss.mss() as sct:
@@ -161,7 +163,7 @@ class RegionSelector(QWidget):
             p.setPen(QColor("white"))
             p.setFont(QFont("Segoe UI", 18))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Drag to select region  •  ESC to cancel")
+                       t("region_selector_hint", current_language()))
             p.end()
             return
 

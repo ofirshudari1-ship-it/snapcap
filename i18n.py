@@ -79,7 +79,9 @@ STRINGS = {
         "tray_already_running_title": "SnapCap",
         "tray_already_running_msg": "SnapCap is already running.\n\nLook for the  S  icon in your system tray.",
         "update_available_title": "SnapCap — Update Available",
-        "update_available_msg": "Version {version} is available. Open Settings → About to update.",
+        # Was "Open Settings → About" — the Update button actually lives in
+        # Settings → Advanced, not About (fixed 2026-09-23).
+        "update_available_msg": "Version {version} is available. Open Settings → Advanced to update.",
         "saved_msg": "Saved: {filename}",
         "redact_msg": "Redacted {count} sensitive item(s).",
         # Settings dialog
@@ -171,6 +173,34 @@ STRINGS = {
         "lib_delete_title": "Delete",
         "lib_delete_confirm_fmt": "Delete {filename}?",
         "error": "Error",
+        # About dialog — main.py:_show_about (2026-09-23 localization pass)
+        "about_title": "About SnapCap",
+        "about_tagline": "The screenshot tool the market was missing.",
+        "about_feat_capture": "Smart region / window / fullscreen / scrolling capture",
+        "about_feat_annotate": "Full annotation — arrows, shapes, steps, callouts",
+        "about_feat_redact": "AI PII auto-redaction (emails, keys, IDs, phones)",
+        "about_feat_ocr": "OCR with table extraction (CSV / Markdown export)",
+        "about_feat_ai": "Claude AI — summarize, alt-text, bug reports, translate",
+        "about_feat_library": "Searchable screenshot library with OCR index",
+        "about_feat_share": "Imgur, custom webhook, Slack, Teams, email sharing",
+        # Scrolling-capture progress dialog — main.py:_capture_scroll
+        "scroll_capture_progress": "Scrolling and stitching…",
+        "scroll_capture_dialog_title": "SnapCap — Scrolling Capture",
+        # Splash screen — splash_screen.py
+        "splash_starting": "Starting…",
+        # Region selector overlay — region_selector.py
+        "region_selector_hint": "Drag to select region  •  ESC to cancel",
+        # Editor panel collapsible section headers — editor_window.py
+        "editor_section_share_export": "Share & Export",
+        "editor_section_ocr": "Extract Text (OCR)",
+        # Settings validation — editor_window.py:SettingsDialog._validate
+        "invalid_settings_title": "Invalid Settings",
+        "validate_save_dir_empty": "Save directory cannot be empty.",
+        "validate_save_dir_not_writable": "Save directory isn't writable:\n{dir}\n\n{err}",
+        "validate_url_invalid": "{label} doesn't look like a valid URL (must start with http:// or https://):\n{val}",
+        "lbl_slack_webhook_short": "Slack webhook",
+        "lbl_teams_webhook_short": "Teams webhook",
+        "lbl_custom_webhook_short": "Custom webhook",
     },
     "he": {
         "app_name": "SnapCap",
@@ -235,7 +265,7 @@ STRINGS = {
         "tray_already_running_title": "SnapCap",
         "tray_already_running_msg": "SnapCap כבר פועל.\n\nחפש את הסמל  S  במגש המערכת.",
         "update_available_title": "SnapCap — עדכון זמין",
-        "update_available_msg": "גרסה {version} זמינה. פתח הגדרות → אודות כדי לעדכן.",
+        "update_available_msg": "גרסה {version} זמינה. פתח הגדרות → מתקדם כדי לעדכן.",
         "saved_msg": "נשמר: {filename}",
         "redact_msg": "טושטשו {count} פריטים רגישים.",
         "settings_title": "SnapCap — הגדרות",
@@ -323,6 +353,34 @@ STRINGS = {
         "lib_delete_title": "מחיקה",
         "lib_delete_confirm_fmt": "למחוק את {filename}?",
         "error": "שגיאה",
+        # About dialog — main.py:_show_about (2026-09-23 localization pass)
+        "about_title": "אודות SnapCap",
+        "about_tagline": "כלי צילום המסך שהיה חסר בשוק.",
+        "about_feat_capture": "צילום חכם — אזור / חלון / מסך מלא / גלילה",
+        "about_feat_annotate": "סימון מלא — חצים, צורות, שלבים, הערות",
+        "about_feat_redact": "טשטוש PII אוטומטי בעזרת AI (אימיילים, מפתחות, ת.ז., טלפונים)",
+        "about_feat_ocr": "OCR עם חילוץ טבלאות (ייצוא ל-CSV / Markdown)",
+        "about_feat_ai": "Claude AI — סיכום, טקסט נגיש, דוחות באגים, תרגום",
+        "about_feat_library": "ספריית צילומי מסך עם אינדקס חיפוש OCR",
+        "about_feat_share": "שיתוף ל-Imgur, webhook מותאם אישית, Slack, Teams ומייל",
+        # Scrolling-capture progress dialog — main.py:_capture_scroll
+        "scroll_capture_progress": "גולל ותופר…",
+        "scroll_capture_dialog_title": "SnapCap — צילום גלילה",
+        # Splash screen — splash_screen.py
+        "splash_starting": "מתחיל…",
+        # Region selector overlay — region_selector.py
+        "region_selector_hint": "גרור לבחירת אזור  •  ESC לביטול",
+        # Editor panel collapsible section headers — editor_window.py
+        "editor_section_share_export": "שיתוף וייצוא",
+        "editor_section_ocr": "חילוץ טקסט (OCR)",
+        # Settings validation — editor_window.py:SettingsDialog._validate
+        "invalid_settings_title": "הגדרות לא תקינות",
+        "validate_save_dir_empty": "תיקיית השמירה לא יכולה להיות ריקה.",
+        "validate_save_dir_not_writable": "לא ניתן לכתוב לתיקיית השמירה:\n{dir}\n\n{err}",
+        "validate_url_invalid": "{label} לא נראית ככתובת URL תקינה (חייבת להתחיל ב-http:// או https://):\n{val}",
+        "lbl_slack_webhook_short": "Webhook של Slack",
+        "lbl_teams_webhook_short": "Webhook של Teams",
+        "lbl_custom_webhook_short": "Webhook מותאם אישית",
     },
 }
 

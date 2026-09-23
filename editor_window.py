@@ -975,7 +975,7 @@ class EditorWindow(QMainWindow):
         sl.addWidget(self._section_btn("☁  Upload to Imgur", self._upload_imgur))
         sl.addWidget(self._section_btn("✉  Open in Mail", self._open_mail))
         sl.addWidget(self._section_btn("🖌  Open in Paint", self._open_paint))
-        outer.addWidget(self._collapsible_section("Share & Export", share_page, expanded=True))
+        outer.addWidget(self._collapsible_section(t("editor_section_share_export", current_language()), share_page, expanded=True))
 
         # ── Extract Text (OCR) ───────────────────────────────────────────────
         ocr_page = QWidget()
@@ -984,7 +984,7 @@ class EditorWindow(QMainWindow):
         ol.setSpacing(6)
         ol.addWidget(self._section_btn("Extract All Text", self._ocr_text))
         ol.addWidget(self._section_btn("Extract as Table/CSV", self._ocr_table))
-        outer.addWidget(self._collapsible_section("Extract Text (OCR)", ocr_page))
+        outer.addWidget(self._collapsible_section(t("editor_section_ocr", current_language()), ocr_page))
 
         # ── AI Tools — grouped by what they do, not one flat list ───────────
         ai_page = QWidget()
@@ -1013,7 +1013,11 @@ class EditorWindow(QMainWindow):
         ]
         for group_name, items in ai_groups:
             gl = QLabel(group_name.upper())
-            gl.setStyleSheet("color: #9aa4bd; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
+            # Was a hardcoded "#9aa4bd" — 2.3:1 against the light theme's
+            # PANEL_BG (fails WCAG AA); MUTED_FG is the theme-aware color
+            # already verified >=4.5:1 in both themes (see
+            # test_muted_text_meets_wcag_aa_in_both_themes).
+            gl.setStyleSheet(f"color: {MUTED_FG}; font-size: 10px; font-weight: bold; letter-spacing: 1px;")
             al.addWidget(gl)
             for label, task in items:
                 al.addWidget(self._section_btn(label, lambda _, t=task: self._run_ai(t)))
@@ -1274,7 +1278,10 @@ class EditorWindow(QMainWindow):
         key = self._conf.get("anthropic_api_key", "")
         if key:
             self._ai_status.setText("✅  Claude API connected")
-            self._ai_status.setStyleSheet("color: #1dd1a1; font-size: 11px;")
+            # Was a hardcoded "#1dd1a1" — 1.8:1 against the light theme's
+            # PANEL_BG (fails WCAG AA); ACCENT_TEXT is the theme-aware
+            # color, >=5.2:1 against both DARK_BG and PANEL_BG in both themes.
+            self._ai_status.setStyleSheet(f"color: {ACCENT_TEXT}; font-size: 11px;")
         else:
             self._ai_status.setText("⚙  Set API key in Settings")
 
@@ -1718,30 +1725,30 @@ class SettingsDialog(QDialog):
         instead of silently corrupting config or failing later at save-time."""
         save_dir = self._save_dir_edit.text().strip()
         if not save_dir:
-            return "Save directory cannot be empty."
+            return t("validate_save_dir_empty", self._lang)
         try:
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             probe = Path(save_dir) / ".snapcap_write_test"
             probe.touch()
             probe.unlink()
         except Exception as e:
-            return f"Save directory isn't writable:\n{save_dir}\n\n{e}"
+            return t("validate_save_dir_not_writable", self._lang, dir=save_dir, err=e)
 
         url_re = re.compile(r"^https?://\S+$")
         for label, edit in (
-            ("Slack webhook", self._slack_edit),
-            ("Teams webhook", self._teams_edit),
-            ("Custom webhook", self._custom_url_edit),
+            (t("lbl_slack_webhook_short", self._lang), self._slack_edit),
+            (t("lbl_teams_webhook_short", self._lang), self._teams_edit),
+            (t("lbl_custom_webhook_short", self._lang), self._custom_url_edit),
         ):
             val = edit.text().strip()
             if val and not url_re.match(val):
-                return f"{label} doesn't look like a valid URL (must start with http:// or https://):\n{val}"
+                return t("validate_url_invalid", self._lang, label=label, val=val)
         return None
 
     def _save(self):
         error = self._validate()
         if error:
-            QMessageBox.warning(self, "Invalid Settings", error)
+            QMessageBox.warning(self, t("invalid_settings_title", self._lang), error)
             return
 
         self._conf["language"] = self._lang_combo.currentData()
