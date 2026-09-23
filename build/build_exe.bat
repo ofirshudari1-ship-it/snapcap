@@ -83,6 +83,14 @@ if errorlevel 1 (
 echo.
 echo Building installer (bundles the app EXE, then removes the loose copy)...
 python build\build_installer.py
+if errorlevel 1 (
+    echo ERROR: build_installer.py failed - see the traceback above.
+    echo (this used to be silently ignored, printing "Build complete!" anyway
+    echo  even when this step crashed - e.g. when it couldn't delete a
+    echo  previous SnapCap-Setup-*.exe that was still locked by antivirus/
+    echo  Explorer, leaving a stale installer with the OLD version number)
+    pause & exit /b 1
+)
 
 echo.
 echo ================================================

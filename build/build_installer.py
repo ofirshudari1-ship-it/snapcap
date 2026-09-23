@@ -264,7 +264,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QFileDialog, QMessageBox, QRadioButton, QButtonGroup, QWidget,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QLinearGradient
+from PyQt6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QLinearGradient, QPalette
 
 DARK  = "#0f0e17"
 PANEL = "#16213e"
@@ -351,7 +351,9 @@ QPushButton {{
     padding:8px 20px; color:{FG};
 }}
 QPushButton:hover {{ background:{BLUE}; }}
+QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
 QPushButton#finish {{ background:{RED}; color:#1a1a2e; font-weight:bold; }}
+QPushButton#finish:disabled {{ background:#22223a; color:#5a5a72; }}
 QLineEdit {{
     background:{PANEL}; border:1px solid {BORDER}; border-radius:8px;
     padding:7px 11px; color:{FG};
@@ -821,6 +823,19 @@ class SetupWizard(QDialog):
         self._back_btn.clicked.connect(self._go_back)
         self._next_btn = QPushButton()
         self._next_btn.setObjectName("finish")
+        # The app-level `QPushButton#finish` ID-selector rule in STYLE does
+        # not reliably apply to this specific button on Windows (confirmed by
+        # rendering it: the button kept the plain QPushButton look instead of
+        # the intended teal fill, leaving its #1a1a2e text nearly invisible -
+        # this is what users were reporting as unreadable installer buttons).
+        # Setting the same rule directly on the widget bypasses whatever is
+        # blocking the selector match and is guaranteed to apply.
+        self._next_btn.setStyleSheet(f"""
+            QPushButton {{ background:{RED}; color:#1a1a2e; font-weight:bold;
+                           border:none; border-radius:8px; padding:8px 20px; }}
+            QPushButton:hover {{ background:#00f0b5; }}
+            QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
+        """)
         self._next_btn.clicked.connect(self._go_next)
         nl.addWidget(self._cancel_btn)
         nl.addStretch()
@@ -893,6 +908,27 @@ def main():
     # as near-invisible native chrome instead of the intended solid teal
     # fill. Fusion fully respects the stylesheet everywhere.
     app.setStyle("Fusion")
+    # Fusion + a stylesheet still isn't enough on Windows 11: when the OS is
+    # in dark mode, Qt6 seeds QPalette from the system theme and some builds
+    # keep using that palette's (light-mode, near-black) ButtonText/WindowText
+    # for QPushButton regardless of the QSS `color` property - this is what
+    # made "Next"/"Finish" render as unreadable dark text on a dark/teal fill.
+    # Setting an explicit dark QPalette (including the Disabled group) closes
+    # that gap for every widget, not just the ones the stylesheet covers.
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor(DARK))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(FG))
+    palette.setColor(QPalette.ColorRole.Base, QColor(PANEL))
+    palette.setColor(QPalette.ColorRole.Text, QColor(FG))
+    palette.setColor(QPalette.ColorRole.Button, QColor(BORDER))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(FG))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor("white"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(RED))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#1a1a2e"))
+    disabled_fg = QColor("#5a5a72")
+    for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, disabled_fg)
+    app.setPalette(palette)
     app.setApplicationName("SnapCap Setup")
     app.setWindowIcon(make_icon())  # covers QMessageBox popups too, not just the main dialog
     app.setStyleSheet(STYLE)
