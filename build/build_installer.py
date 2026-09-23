@@ -936,8 +936,29 @@ def main():
     wiz = SetupWizard()
     wiz.exec()
 
-    if wiz.launch_requested():
-        exe = Path(wiz.install_dir()) / "SnapCap.exe"
+    launch = wiz.launch_requested()
+    install_dir = wiz.install_dir()
+
+    # Explicit teardown before exit. Without this, PyInstaller's onefile
+    # bootloader can try to delete its _MEI extraction folder in %TEMP%
+    # while Qt's own DLLs (loaded from inside that same folder) are still
+    # mapped into this process - Windows won't let a mapped file be
+    # deleted, so the bootloader shows a "Failed to remove temporary
+    # directory" warning at exit. The install itself has already finished
+    # by this point (wiz.exec() already returned), so that warning was
+    # cosmetic, not a failed install - but tearing Qt down explicitly here
+    # (instead of leaving it to interpreter shutdown, which runs after the
+    # bootloader has already started its own cleanup) gives Windows a real
+    # chance to unmap those DLLs before the bootloader gets to them.
+    del wiz
+    app.quit()
+    app.processEvents()
+    del app
+    import gc
+    gc.collect()
+
+    if launch:
+        exe = Path(install_dir) / "SnapCap.exe"
         if exe.exists():
             import subprocess
             subprocess.Popen([str(exe)], creationflags=subprocess.DETACHED_PROCESS)
