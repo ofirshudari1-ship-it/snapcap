@@ -101,6 +101,14 @@ def _create_shortcut(target: Path, link: Path, arguments: str = "", log=lambda m
         log(f"  Shortcut warning: {e}")
 
 
+def _compute_installed_size_kb(install_dir: Path) -> int:
+    try:
+        total = sum(f.stat().st_size for f in install_dir.rglob("*") if f.is_file())
+        return max(1, total // 1024)
+    except Exception:
+        return 1  # best-effort fallback if the folder can't be walked
+
+
 def _write_registry_entry(install_dir: Path, log=lambda m: None):
     """Writes the uninstall entry to HKLM — SnapCap installs per-machine
     under %PROGRAMFILES% and the installer requests admin elevation via
@@ -120,6 +128,12 @@ def _write_registry_entry(install_dir: Path, log=lambda m: None):
         winreg.SetValueEx(key, "UninstallString",  0, winreg.REG_SZ, str(install_dir / "SnapCap.exe") + " --uninstall")
         winreg.SetValueEx(key, "DisplayIcon",      0, winreg.REG_SZ, str(install_dir / "SnapCap.exe"))
         winreg.SetValueEx(key, "NoModify",         0, winreg.REG_DWORD, 1)
+        winreg.SetValueEx(key, "NoRepair",         0, winreg.REG_DWORD, 1)
+        # Windows Settings > Apps reads this straight from the registry - it
+        # does not measure the install folder itself, so without this the
+        # size column was simply blank/missing for SnapCap while every other
+        # installed program on the system shows a real number.
+        winreg.SetValueEx(key, "EstimatedSize",    0, winreg.REG_DWORD, _compute_installed_size_kb(install_dir))
         winreg.CloseKey(key)
     except Exception as e:
         log(f"  Registry warning: {e}")
