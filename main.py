@@ -411,7 +411,7 @@ class SnapCapApp:
         # widget with its × could only be undone from Settings → General.
         self._widget_action = menu.addAction(t("cb_show_desktop_widget", lang))
         self._widget_action.setCheckable(True)
-        self._widget_action.setChecked(bool(conf.get("show_desktop_widget", True)))
+        self._widget_action.setChecked(bool(conf.get("show_desktop_widget", False)))
         self._widget_action.toggled.connect(self._set_widget_enabled)
         menu.addSeparator()
         _add(f"⚙️  {t('tray_settings', lang)}",            self._open_settings)
@@ -466,7 +466,7 @@ class SnapCapApp:
         Called at startup, after the onboarding wizard saves, and after the
         Settings dialog closes — so toggling the checkbox takes effect
         immediately without a restart."""
-        show = self._conf.get("show_desktop_widget", True)
+        show = self._conf.get("show_desktop_widget", False)
         if rebuild and self._widget_window is not None:
             # Language changed: the widget's captions/layout direction are
             # fixed at construction, so replace it rather than leave it in
@@ -503,7 +503,7 @@ class SnapCapApp:
         if act is None:
             return
         act.blockSignals(True)
-        act.setChecked(bool(cfg.load().get("show_desktop_widget", True)))
+        act.setChecked(bool(cfg.load().get("show_desktop_widget", False)))
         act.blockSignals(False)
 
     def _hide_widget_for_capture(self) -> bool:
@@ -523,7 +523,7 @@ class SnapCapApp:
     def _restore_widget_after_capture(self):
         if getattr(self, "_widget_hidden_for_capture", False):
             self._widget_hidden_for_capture = False
-            if self._widget_window is not None and self._conf.get("show_desktop_widget", True):
+            if self._widget_window is not None and self._conf.get("show_desktop_widget", False):
                 self._widget_window.show()
 
     # ── Capture delay ──────────────────────────────────────────────────────────

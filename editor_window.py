@@ -1528,7 +1528,7 @@ class SettingsDialog(QDialog):
         wl = QVBoxLayout(widget_box)
 
         self._show_widget_cb = QCheckBox(t("cb_show_desktop_widget", lang))
-        self._show_widget_cb.setChecked(self._conf.get("show_desktop_widget", True))
+        self._show_widget_cb.setChecked(self._conf.get("show_desktop_widget", False))
         wl.addWidget(self._show_widget_cb)
 
         l.addWidget(widget_box)

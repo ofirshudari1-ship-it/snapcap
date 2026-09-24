@@ -109,7 +109,7 @@ DEFAULT_CONFIG = {
     # extra step; "widget_pos" is None until the user drags it once, at
     # which point WidgetWindow persists {"x": int, "y": int} here so it
     # reopens in the same spot across restarts.
-    "show_desktop_widget": True,
+    "show_desktop_widget": False,  # opt-in - off by default, enable from Settings
     "widget_pos": None,
 }
 

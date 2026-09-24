@@ -852,9 +852,9 @@ class TestAutoUpdateQuitPath(unittest.TestCase):
 class TestDesktopWidgetConfig(unittest.TestCase):
     """2026-09-22 desktop widget pass — config defaults and translations."""
 
-    def test_show_desktop_widget_defaults_true(self):
+    def test_show_desktop_widget_defaults_false(self):
         import config as cfg
-        self.assertTrue(cfg.DEFAULT_CONFIG["show_desktop_widget"])
+        self.assertFalse(cfg.DEFAULT_CONFIG["show_desktop_widget"])
 
     def test_widget_pos_defaults_none(self):
         import config as cfg
