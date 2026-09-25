@@ -14,6 +14,7 @@ os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
 
 from PyQt6.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu, QMessageBox, QDialog, QWidget,
+    QFileDialog,
 )
 from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter, QFont, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
@@ -21,6 +22,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PIL import Image
 import a11y
 import config as cfg
+import diagnostics
 import update_checker
 from i18n import t, is_rtl, current_language
 from logger import get_logger
@@ -831,6 +833,7 @@ class SnapCapApp:
             f"<p style='color:#8892a4;'>© 2026 SnapCap · <a href='https://github.com/snapcap' style='color:#00d9a3;'>github.com/snapcap</a></p>"
         )
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        export_btn = msg.addButton(t("btn_export_diagnostics", lang), QMessageBox.ButtonRole.ActionRole)
         msg.setStyleSheet("""
             QMessageBox { background: #16213e; color: #eaeaea; }
             QLabel { color: #eaeaea; }
@@ -839,6 +842,37 @@ class SnapCapApp:
             QPushButton:hover { background: #00b386; }
         """)
         msg.exec()
+        if msg.clickedButton() is export_btn:
+            self._export_diagnostics()
+
+    def _export_diagnostics(self):
+        """About -> Export Diagnostics (also available in Settings ->
+        Advanced, editor_window.SettingsDialog._export_diagnostics): bundles
+        the log file (if any), version.json, a redacted copy of config.json,
+        and a system-info.txt into one .zip. See diagnostics.py for exactly
+        what's included/redacted before anything is written to disk."""
+        lang = current_language()
+        default_dir = str(Path.home() / "Desktop")
+        if not Path(default_dir).is_dir():
+            default_dir = str(Path.home())
+        default_path = str(Path(default_dir) / diagnostics.default_zip_name(APP_VERSION))
+
+        path, _ = QFileDialog.getSaveFileName(
+            None, t("diag_export_dialog_title", lang), default_path, "Zip files (*.zip)",
+        )
+        if not path:
+            return
+        try:
+            saved = diagnostics.build_diagnostics_zip(path)
+            QMessageBox.information(
+                None, t("diag_export_success_title", lang),
+                t("diag_export_success_fmt", lang, path=str(saved)),
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                None, t("diag_export_failed_title", lang),
+                t("diag_export_failed_fmt", lang, error=str(e)),
+            )
 
     def run(self):
         sys.exit(self.app.exec())

@@ -33,6 +33,7 @@ import config as cfg
 import share_manager as sm
 import ai_engine as ai
 import update_checker
+import diagnostics
 import a11y
 from i18n import t, is_rtl, current_language
 
@@ -1612,8 +1613,43 @@ class SettingsDialog(QDialog):
         self._watermark_edit = QLineEdit(self._conf.get("watermark_text", ""))
         l.addLayout(self._row(t("lbl_watermark_text", lang), self._watermark_edit))
 
+        export_diag_btn = QPushButton(t("btn_export_diagnostics", lang))
+        export_diag_btn.clicked.connect(self._export_diagnostics)
+        diag_row = QHBoxLayout()
+        diag_row.addWidget(export_diag_btn)
+        diag_row.addStretch()
+        l.addLayout(diag_row)
+
         l.addStretch()
         return w
+
+    def _export_diagnostics(self):
+        """Settings -> Advanced -> Export Diagnostics: bundles the log file
+        (if any), version.json, a redacted copy of config.json, and a
+        system-info.txt into one .zip the user can attach to a support
+        request. See diagnostics.py for exactly what's included/redacted."""
+        lang = self._lang
+        default_dir = str(Path.home() / "Desktop")
+        if not Path(default_dir).is_dir():
+            default_dir = str(Path.home())
+        default_path = str(Path(default_dir) / diagnostics.default_zip_name(cfg.APP_VERSION))
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, t("diag_export_dialog_title", lang), default_path, "Zip files (*.zip)",
+        )
+        if not path:
+            return
+        try:
+            saved = diagnostics.build_diagnostics_zip(path)
+            QMessageBox.information(
+                self, t("diag_export_success_title", lang),
+                t("diag_export_success_fmt", lang, path=str(saved)),
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self, t("diag_export_failed_title", lang),
+                t("diag_export_failed_fmt", lang, error=str(e)),
+            )
 
     def _check_for_updates_now(self):
         """Manual 'Check for Updates' — runs the same GitHub Releases check

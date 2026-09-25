@@ -1472,5 +1472,106 @@ class TestOnboardingWizardAccessibility(unittest.TestCase):
             w.close()
 
 
+class TestExportDiagnostics(unittest.TestCase):
+    """diagnostics.build_diagnostics_zip — real zipfile written to a temp
+    path (not mocked), per the project standard of verifying I/O-touching
+    features for real rather than just asserting call counts."""
+
+    def test_zip_contains_expected_members(self):
+        import diagnostics
+        import zipfile as zf
+        out = _TEST_HOME / "diag-test.zip"
+        result = diagnostics.build_diagnostics_zip(out)
+        self.assertEqual(result, out)
+        self.assertTrue(out.exists())
+        with zf.ZipFile(out) as z:
+            names = set(z.namelist())
+        # snapcap.log is only included if it already exists on this machine —
+        # every other member is unconditional.
+        self.assertIn("version.json", names)
+        self.assertIn("config.json", names)
+        self.assertIn("system-info.txt", names)
+
+    def test_version_json_matches_project_version(self):
+        import diagnostics
+        import json
+        import zipfile as zf
+        out = _TEST_HOME / "diag-test-version.zip"
+        diagnostics.build_diagnostics_zip(out)
+        with zf.ZipFile(out) as z:
+            data = json.loads(z.read("version.json"))
+        self.assertEqual(data["version"], _cfg.APP_VERSION)
+
+    def test_system_info_has_expected_fields(self):
+        import diagnostics
+        import zipfile as zf
+        out = _TEST_HOME / "diag-test-sysinfo.zip"
+        diagnostics.build_diagnostics_zip(out)
+        with zf.ZipFile(out) as z:
+            text = z.read("system-info.txt").decode("utf-8")
+        for label in ("SnapCap version:", "OS:", "Python:", "PyQt6", "Install path:"):
+            self.assertIn(label, text)
+
+    def test_no_credentials_leak_into_bundled_config(self):
+        """The whole point of the feature: every credential-shaped field
+        must be redacted in the bundle, even though config.load() (which
+        build_diagnostics_zip reads from) returns them in plaintext for the
+        app's own use."""
+        import diagnostics
+        import json
+        import zipfile as zf
+
+        conf = dict(_cfg.DEFAULT_CONFIG)
+        conf["anthropic_api_key"] = "sk-ant-super-secret-value"
+        conf["slack_webhook"] = "https://hooks.slack.com/services/SECRET/TOKEN"
+        conf["teams_webhook"] = "https://outlook.office.com/webhook/SECRET"
+        conf["upload_targets"] = {
+            "imgur": {"enabled": True, "client_id": "imgur-secret-id"},
+            "s3": {"enabled": True, "bucket": "b", "key_id": "AKIASECRET", "key_secret": "s3-secret-key"},
+            "custom_url": {"enabled": True, "url": "https://example.com/upload?token=SECRETTOKEN", "method": "POST"},
+        }
+        _cfg.save(conf)
+        try:
+            out = _TEST_HOME / "diag-test-secrets.zip"
+            diagnostics.build_diagnostics_zip(out)
+            with zf.ZipFile(out) as z:
+                raw_bytes = z.read("config.json")
+                bundled = json.loads(raw_bytes)
+
+            leaked_needles = [
+                "sk-ant-super-secret-value", "SECRET/TOKEN", "webhook/SECRET",
+                "imgur-secret-id", "AKIASECRET", "s3-secret-key", "SECRETTOKEN",
+            ]
+            raw_text = raw_bytes.decode("utf-8")
+            for needle in leaked_needles:
+                self.assertNotIn(needle, raw_text, f"leaked secret in diagnostics zip: {needle}")
+
+            self.assertEqual(bundled["anthropic_api_key"], diagnostics._REDACTED)
+            self.assertEqual(bundled["slack_webhook"], diagnostics._REDACTED)
+            self.assertEqual(bundled["teams_webhook"], diagnostics._REDACTED)
+            self.assertEqual(bundled["upload_targets"]["imgur"]["client_id"], diagnostics._REDACTED)
+            self.assertEqual(bundled["upload_targets"]["s3"]["key_id"], diagnostics._REDACTED)
+            self.assertEqual(bundled["upload_targets"]["s3"]["key_secret"], diagnostics._REDACTED)
+            self.assertEqual(bundled["upload_targets"]["custom_url"]["url"], diagnostics._REDACTED)
+        finally:
+            # cleanup: restore an empty/default config so this test doesn't
+            # leave fake secrets behind for any test that runs after it.
+            _cfg.save(dict(_cfg.DEFAULT_CONFIG))
+
+    def test_default_zip_name_includes_version_and_date(self):
+        import diagnostics
+        import datetime
+        name = diagnostics.default_zip_name("9.9.9")
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        self.assertEqual(name, f"SnapCap-Diagnostics-9.9.9-{today}.zip")
+
+    def test_btn_export_diagnostics_translated_both_languages(self):
+        from i18n import t
+        self.assertEqual(t("btn_export_diagnostics", "en"), "Export Diagnostics")
+        he_text = t("btn_export_diagnostics", "he")
+        self.assertNotEqual(he_text, "btn_export_diagnostics")
+        self.assertTrue(any("֐" <= ch <= "׿" for ch in he_text))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -183,6 +183,13 @@ STRINGS = {
         "about_feat_ai": "Claude AI — summarize, alt-text, bug reports, translate",
         "about_feat_library": "Searchable screenshot library with OCR index",
         "about_feat_share": "Imgur, custom webhook, Slack, Teams, email sharing",
+        # Export Diagnostics — main.py:_export_diagnostics (2026-09-25)
+        "btn_export_diagnostics": "Export Diagnostics",
+        "diag_export_dialog_title": "Export Diagnostics",
+        "diag_export_success_title": "Diagnostics Exported",
+        "diag_export_success_fmt": "Diagnostics saved to:\n{path}",
+        "diag_export_failed_title": "Export Failed",
+        "diag_export_failed_fmt": "Couldn't export diagnostics: {error}",
         # Scrolling-capture progress dialog — main.py:_capture_scroll
         "scroll_capture_progress": "Scrolling and stitching…",
         "scroll_capture_dialog_title": "SnapCap — Scrolling Capture",
@@ -363,6 +370,13 @@ STRINGS = {
         "about_feat_ai": "Claude AI — סיכום, טקסט נגיש, דוחות באגים, תרגום",
         "about_feat_library": "ספריית צילומי מסך עם אינדקס חיפוש OCR",
         "about_feat_share": "שיתוף ל-Imgur, webhook מותאם אישית, Slack, Teams ומייל",
+        # Export Diagnostics — main.py:_export_diagnostics (2026-09-25)
+        "btn_export_diagnostics": "ייצוא אבחון",
+        "diag_export_dialog_title": "ייצוא אבחון",
+        "diag_export_success_title": "האבחון יוצא בהצלחה",
+        "diag_export_success_fmt": "קובץ האבחון נשמר בנתיב:\n{path}",
+        "diag_export_failed_title": "הייצוא נכשל",
+        "diag_export_failed_fmt": "לא ניתן לייצא את קובץ האבחון: {error}",
         # Scrolling-capture progress dialog — main.py:_capture_scroll
         "scroll_capture_progress": "גולל ותופר…",
         "scroll_capture_dialog_title": "SnapCap — צילום גלילה",

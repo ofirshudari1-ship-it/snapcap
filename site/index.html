@@ -261,7 +261,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge">v1.11.0</span>
+      <span class="ver-badge">v1.13.0</span>
     </div>
     <nav class="links">
       <a href="#how">How it works</a>
@@ -293,7 +293,7 @@
         <a class="btn primary" href="#install">⬇ Download for Windows</a>
         <a class="btn ghost" href="#features">See what it does ↓</a>
       </div>
-      <p class="hero-meta">v1.11.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.11.0.exe</span> · ~140 MB</p>
+      <p class="hero-meta">v1.13.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.13.0.exe</span> · ~140 MB</p>
       <div class="badge-row">
         <span class="mini-badge">🔒 Local OCR &amp; redaction</span>
         <span class="mini-badge">🌗 Auto dark/light</span>
@@ -519,6 +519,35 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.13.0</span><span class="cl-date">2026-09-25</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">A one-click "Export Diagnostics" button bundles your log file, version info, a redacted copy of your config, and basic system info into a single zip — for sending to support. Also: the installer wizard is now the last window to gain Windows High Contrast support, matching the rest of the app.</p>
+        <ul class="cl-list">
+          <li><b>Added</b> an "Export Diagnostics" button (Settings → Advanced, and on the About dialog) that saves one zip file with your log, version.json, your config with every API key/webhook/credential redacted, and a system-info summary.</li>
+          <li><b>Fixed</b>: the installer wizard was the only remaining window that didn't honor Windows High Contrast — it now reads your system colors like the main app, widget, library, editor, splash screen, and onboarding already do.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.2</span><span class="cl-date">2026-09-24</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">A small fix so Windows Settings → Apps shows a real size for SnapCap instead of a blank column.</p>
+        <ul class="cl-list">
+          <li><b>Fixed</b>: the uninstall entry didn't report an installed size to Windows, so it showed blank in Settings → Apps while every other program showed a real number.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.1</span><span class="cl-date">2026-09-24</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">The desktop widget is opt-in again — it no longer turns itself on automatically right after installing.</p>
+        <ul class="cl-list">
+          <li><b>Fixed</b>: the desktop widget defaulted to visible after a fresh install. It's off by default again; turn it on from Settings or the tray icon whenever you want it.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">A shared visual identity update: the installer wizard and splash screen now use the same color palette across every one of our Windows tools, instead of each tool's own colors.</p>
+        <ul class="cl-list">
+          <li><b>Changed</b>: the installer wizard and splash screen now use a shared dark-blue palette instead of SnapCap's own teal/blue — the running app itself (tray, widget, Library, Editor) is unchanged.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Closes the items the previous audit pass left open — real Hebrew/English text everywhere, a corrected uninstall registry location, and High Contrast support for first-run setup.</p>
         <ul class="cl-list">
@@ -643,14 +672,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap v1.11.0 for Windows 10/11</h3>
-        <div class="path">SnapCap-Setup-1.11.0.exe</div>
+        <h3>SnapCap v1.13.0 for Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.13.0.exe</div>
         <div class="facts">≈140 MB · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
       </div>
-      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.11.0/SnapCap-Setup-1.11.0.exe">Download installer</a>
+      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.13.0/SnapCap-Setup-1.13.0.exe">Download installer</a>
     </div>
     <ol class="install-steps">
-      <li>Run <span class="mono">SnapCap-Setup-1.11.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
+      <li>Run <span class="mono">SnapCap-Setup-1.13.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
       <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
       <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
       <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
@@ -716,7 +745,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge">v1.11.0</span>
+      <span class="ver-badge">v1.13.0</span>
     </div>
     <nav class="links">
       <a href="#how-he">איך זה עובד</a>
@@ -747,7 +776,7 @@
         <a class="btn primary" href="#install-he">⬇ הורדה ל-Windows</a>
         <a class="btn ghost" href="#features-he">לראות מה זה עושה ↓</a>
       </div>
-      <p class="hero-meta">v1.11.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.11.0.exe</span> · כ-140 MB</p>
+      <p class="hero-meta">v1.13.0 · Windows 10/11 · <span class="mono">SnapCap-Setup-1.13.0.exe</span> · כ-140 MB</p>
       <div class="badge-row">
         <span class="mini-badge">🔒 OCR והסתרה מקומיים</span>
         <span class="mini-badge">🌗 כהה/בהיר אוטומטי</span>
@@ -973,6 +1002,35 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.13.0</span><span class="cl-date">2026-09-25</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">כפתור "ייצוא אבחון" בלחיצה אחת אוסף לקובץ zip יחיד את קובץ היומן שלך, פרטי הגרסה, עותק של ההגדרות שלך שבו כל פרט רגיש מוסתר, ומידע בסיסי על המערכת - לשליחה לתמיכה. בנוסף: אשף ההתקנה הוא כעת החלון האחרון שמקבל תמיכה ב-Windows High Contrast, בהתאמה לשאר האפליקציה.</p>
+        <ul class="cl-list">
+          <li><b>נוסף</b> כפתור "ייצוא אבחון" (בהגדרות ← מתקדם, וגם בחלון אודות) ששומר קובץ zip אחד עם היומן שלך, קובץ version.json, ההגדרות שלך כשכל מפתח API, webhook ופרט התחברות מוסתר, וסיכום מידע מערכת.</li>
+          <li><b>תוקן</b>: אשף ההתקנה היה החלון האחרון שלא תמך ב-Windows High Contrast - הוא קורא כעת את צבעי המערכת שלך, כמו שהאפליקציה הראשית, הווידג'ט, הספרייה, העורך, מסך הפתיחה והגדרת ההתחלה כבר עושים.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.2</span><span class="cl-date">2026-09-24</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">תיקון קטן כדי שהגדרות Windows ← אפליקציות יציג גודל אמיתי ל-SnapCap במקום עמודה ריקה.</p>
+        <ul class="cl-list">
+          <li><b>תוקן</b>: רשומת ההסרה לא דיווחה ל-Windows על הגודל המותקן, ולכן הוא הופיע ריק בהגדרות ← אפליקציות בזמן שכל תוכנה אחרת הציגה מספר אמיתי.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.1</span><span class="cl-date">2026-09-24</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">הווידג'ט של שולחן העבודה חוזר להיות אופציונלי - הוא כבר לא נדלק אוטומטית מיד אחרי ההתקנה.</p>
+        <ul class="cl-list">
+          <li><b>תוקן</b>: הווידג'ט של שולחן העבודה הופיע כברירת מחדל אחרי התקנה חדשה. הוא כבוי כברירת מחדל שוב; אפשר להדליק אותו מההגדרות או מסמל מגש המערכת בכל רגע שרוצים.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
+        <div class="cl-head"><span class="cl-ver">v1.12.0</span><span class="cl-date">2026-09-23</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">עדכון זהות חזותית משותפת: אשף ההתקנה ומסך הפתיחה משתמשים כעת באותה פלטת צבעים בכל אחד מכלי ה-Windows שלנו, במקום בצבעים הנפרדים של כל כלי.</p>
+        <ul class="cl-list">
+          <li><b>שונה</b>: אשף ההתקנה ומסך הפתיחה משתמשים כעת בפלטת כחול-כהה משותפת במקום הטורקיז-כחול של SnapCap עצמה - האפליקציה הפעילה עצמה (מגש המערכת, הווידג'ט, הספרייה, העורך) לא השתנתה.</li>
+        </ul>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סוגר את הפריטים שנשארו פתוחים מסבב הביקורת הקודם — טקסט אמיתי בעברית ובאנגלית בכל מקום, מיקום נכון לרישום ההסרה, ותמיכת High Contrast להגדרה הראשונית.</p>
         <ul class="cl-list">
@@ -1097,14 +1155,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap v1.11.0 עבור Windows 10/11</h3>
-        <div class="path">SnapCap-Setup-1.11.0.exe</div>
+        <h3>SnapCap v1.13.0 עבור Windows 10/11</h3>
+        <div class="path">SnapCap-Setup-1.13.0.exe</div>
         <div class="facts">כ-140 MB · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
       </div>
-      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.11.0/SnapCap-Setup-1.11.0.exe">הורדת קובץ ההתקנה</a>
+      <a class="btn primary" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.13.0/SnapCap-Setup-1.13.0.exe">הורדת קובץ ההתקנה</a>
     </div>
     <ol class="install-steps">
-      <li>מריצים את <span class="mono">SnapCap-Setup-1.11.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
+      <li>מריצים את <span class="mono">SnapCap-Setup-1.13.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
       <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
       <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
       <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>

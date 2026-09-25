@@ -291,6 +291,54 @@ ACCENT_LIGHT = "#5B9AFF"   # was "#3b82f6" — lighter partner of ACCENT
 FG    = "#EAEAEA"
 MUTED = "#94A3B8"          # was "#8892a4"
 BORDER= "#1E2A45"
+BTN_TEXT = FG              # text color for buttons painted with ACCENT as background
+
+# STANDARDS.md §20.2 — Windows High Contrast (Contrast Themes). The installer
+# is compiled as its own standalone script (see INSTALLER_SCRIPT below), so
+# it can't `import a11y` from the main project the way every other window
+# (main/widget/library/editor/splash/onboarding) does — the same
+# SystemParametersInfoW(SPI_GETHIGHCONTRAST)/GetSysColor logic is inlined
+# here instead. Checked once at startup (a fresh process per install run,
+# unlike the long-lived main app, so no live-refresh hook is needed) and
+# applied before STYLE/make_banner/make_icon read the palette constants.
+def _installer_is_high_contrast() -> bool:
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        class _HIGHCONTRASTW(ctypes.Structure):
+            _fields_ = [("cbSize", ctypes.c_uint), ("dwFlags", ctypes.c_uint),
+                        ("lpszDefaultScheme", ctypes.c_wchar_p)]
+        hc = _HIGHCONTRASTW()
+        hc.cbSize = ctypes.sizeof(_HIGHCONTRASTW)
+        ok = ctypes.windll.user32.SystemParametersInfoW(0x0042, hc.cbSize, ctypes.byref(hc), 0)
+        return bool(ok) and bool(hc.dwFlags & 0x00000001)
+    except Exception:
+        return False
+
+def _installer_system_colors() -> dict:
+    import ctypes
+    def _c(idx):
+        v = ctypes.windll.user32.GetSysColor(idx)
+        r, g, b = v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF
+        return f"#{r:02x}{g:02x}{b:02x}"
+    try:
+        return {"window": _c(5), "window_text": _c(8), "highlight": _c(13),
+                "highlight_text": _c(14), "button": _c(15), "gray_text": _c(17)}
+    except Exception:
+        return {"window": "#000000", "window_text": "#ffffff", "highlight": "#1aebff",
+                "highlight_text": "#000000", "button": "#000000", "gray_text": "#3ff23f"}
+
+if _installer_is_high_contrast():
+    _hc_colors = _installer_system_colors()
+    DARK  = _hc_colors["window"]
+    PANEL = _hc_colors["window"]
+    ACCENT       = _hc_colors["highlight"]
+    ACCENT_LIGHT = _hc_colors["highlight"]
+    FG    = _hc_colors["window_text"]
+    MUTED = _hc_colors["window_text"]
+    BORDER= _hc_colors["window_text"]
+    BTN_TEXT = _hc_colors["highlight_text"]  # pairs with ACCENT (=highlight), not window_text
 
 # ── Bilingual strings (EN / HE) ─────────────────────────────────────────────
 TR = {
@@ -370,7 +418,7 @@ QPushButton {{
 }}
 QPushButton:hover {{ background:{ACCENT_LIGHT}; }}
 QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
-QPushButton#finish {{ background:{ACCENT}; color:{FG}; font-weight:bold; }}
+QPushButton#finish {{ background:{ACCENT}; color:{BTN_TEXT}; font-weight:bold; }}
 QPushButton#finish:disabled {{ background:#22223a; color:#5a5a72; }}
 QLineEdit {{
     background:{PANEL}; border:1px solid {BORDER}; border-radius:8px;
@@ -407,12 +455,12 @@ def make_banner(w=550, h=96) -> QPixmap:
     p.setBrush(badge)
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(20, 16, 62, 62)
-    p.setPen(QColor("white"))
+    p.setPen(QColor(FG))
     p.setFont(QFont("Arial", 32, QFont.Weight.Bold))
     p.drawText(20, 16, 62, 62, Qt.AlignmentFlag.AlignCenter, "S")
     # Title
     p.setFont(QFont("Segoe UI", 27, QFont.Weight.Bold))
-    p.setPen(QColor("white"))
+    p.setPen(QColor(FG))
     p.drawText(98, 18, 400, 42, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "SnapCap")
     p.setFont(QFont("Segoe UI", 11))
     p.setPen(QColor(MUTED))
@@ -441,7 +489,7 @@ def make_icon(size=64) -> QIcon:
     p.setBrush(grad)
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(0, 0, size, size)
-    p.setPen(QColor("white"))
+    p.setPen(QColor(FG))
     p.setFont(QFont("Arial", int(size * 0.45), QFont.Weight.Bold))
     p.drawText(px.rect(), Qt.AlignmentFlag.AlignCenter, "S")
     p.end()
@@ -853,7 +901,7 @@ class SetupWizard(QDialog):
         # confirms white-on-{ACCENT} is 4.9:1 (passes AA) with the new,
         # darker, medium-blue ACCENT (#2F6FED) — dark navy text would fail.
         self._next_btn.setStyleSheet(f"""
-            QPushButton {{ background:{ACCENT}; color:{FG}; font-weight:bold;
+            QPushButton {{ background:{ACCENT}; color:{BTN_TEXT}; font-weight:bold;
                            border:none; border-radius:8px; padding:8px 20px; }}
             QPushButton:hover {{ background:{ACCENT_LIGHT}; }}
             QPushButton:disabled {{ background:#22223a; color:#5a5a72; }}
@@ -949,7 +997,7 @@ def main():
     # White/FG text on the new medium-blue ACCENT (#2F6FED), not the old
     # dark-navy #1a1a2e that only worked against the old light-teal ACCENT —
     # see STANDARDS.md §21.1 contrast note above the Next-button stylesheet.
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(FG))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(BTN_TEXT))
     disabled_fg = QColor("#5a5a72")
     for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText):
         palette.setColor(QPalette.ColorGroup.Disabled, role, disabled_fg)
