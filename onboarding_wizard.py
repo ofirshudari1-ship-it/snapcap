@@ -16,7 +16,7 @@ from PyQt6.QtCore import Qt
 
 import a11y
 import config as cfg
-from i18n import t, is_rtl, current_language
+from i18n import t, is_rtl, current_language, detect_system_language
 
 # ── Style constants ────────────────────────────────────────────────────────────
 # Brand palette (default). STANDARDS.md §20.2 — when a Windows Contrast Theme
@@ -502,6 +502,25 @@ class OnboardingWizard(QDialog):
         self._build()
         self._center()
 
+    def _initial_language_pick(self) -> str:
+        """Which radio is pre-checked on the wizard's language page (page 0).
+
+        2026-09-25 finding: build/build_installer.py's standalone SetupWizard
+        has its own language toggle, but it only translates the installer's
+        own UI — it never writes config.json or any file the running app
+        reads, so an install-time language choice never reaches here. The
+        app's saved default (config.py DEFAULT_CONFIG["language"]) is
+        deliberately always "en" regardless of Windows locale (2026-09-14
+        decision, to avoid silently flipping a user to Hebrew) — that
+        decision is left untouched.
+        This only changes which radio starts checked on this one page, for a
+        genuine first run with no saved language yet: a smarter starting
+        point for a Hebrew-locale user, not a silent switch — Next/Skip still
+        requires an explicit click either way."""
+        if self._conf.get("first_run", True):
+            return detect_system_language()
+        return self._lang
+
     def _apply_direction(self):
         self.setLayoutDirection(
             Qt.LayoutDirection.RightToLeft if is_rtl(self._lang) else Qt.LayoutDirection.LeftToRight
@@ -551,7 +570,7 @@ class OnboardingWizard(QDialog):
 
         # ── Pages ─────────────────────────────────────────────────────────────
         self._stack = QStackedWidget()
-        self._page_lang     = _LanguagePage(self._lang)
+        self._page_lang     = _LanguagePage(self._initial_language_pick())
         self._page_welcome  = _WelcomePage(self._lang)
         self._page_hotkeys  = _HotkeysPage(self._conf, self._lang)
         self._page_ai       = _AISetupPage(self._conf, self._lang)

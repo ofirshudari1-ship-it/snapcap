@@ -1418,6 +1418,16 @@ class SettingsDialog(QDialog):
         row.addWidget(widget)
         return row
 
+    def _hint(self, text: str) -> QLabel:
+        """A short muted sub-label explaining what an option actually does,
+        placed directly under it. One consistent pattern for the whole
+        dialog — 2026-09-25 Settings clarity pass (see also
+        lbl_api_key_hint, the one hint label that already existed before)."""
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px;")
+        lbl.setWordWrap(True)
+        return lbl
+
     def _general_tab(self) -> QWidget:
         w = QWidget()
         l = QVBoxLayout(w)
@@ -1486,16 +1496,19 @@ class SettingsDialog(QDialog):
         self._skip_editor_cb = QCheckBox(t("cb_skip_editor", lang))
         self._skip_editor_cb.setChecked(self._conf.get("skip_editor_on_capture", False))
         cl.addWidget(self._skip_editor_cb)
+        cl.addWidget(self._hint(t("hint_skip_editor", lang)))
 
         self._auto_redact_cb = QCheckBox(t("cb_auto_redact", lang))
         self._auto_redact_cb.setChecked(self._conf.get("auto_redact", False))
         cl.addWidget(self._auto_redact_cb)
+        cl.addWidget(self._hint(t("hint_auto_redact", lang)))
 
         redact_style_combo = QComboBox()
         redact_style_combo.addItems(["blur", "pixelate", "black", "label"])
         redact_style_combo.setCurrentText(self._conf.get("redact_style", "blur"))
         self._redact_style_combo = redact_style_combo
         cl.addLayout(self._row(t("lbl_redact_style", lang), redact_style_combo))
+        cl.addWidget(self._hint(t("hint_redact_style", lang)))
 
         l.addWidget(capture_box)
 
@@ -1521,6 +1534,7 @@ class SettingsDialog(QDialog):
         self._auto_update_cb = QCheckBox(t("cb_auto_update", lang))
         self._auto_update_cb.setChecked(self._conf.get("auto_update", False))
         sl.addWidget(self._auto_update_cb)
+        sl.addWidget(self._hint(t("hint_auto_update", lang)))
 
         l.addWidget(startup_box)
 
@@ -1531,6 +1545,7 @@ class SettingsDialog(QDialog):
         self._show_widget_cb = QCheckBox(t("cb_show_desktop_widget", lang))
         self._show_widget_cb.setChecked(self._conf.get("show_desktop_widget", False))
         wl.addWidget(self._show_widget_cb)
+        wl.addWidget(self._hint(t("hint_show_widget", lang)))
 
         l.addWidget(widget_box)
 
@@ -1545,7 +1560,7 @@ class SettingsDialog(QDialog):
         self._api_key_edit = QLineEdit(self._conf.get("anthropic_api_key", ""))
         self._api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         l.addWidget(self._api_key_edit)
-        l.addWidget(QLabel(t("lbl_api_key_hint", lang)))
+        l.addWidget(self._hint(t("lbl_api_key_hint", lang)))
         l.addStretch()
         return w
 
@@ -1558,18 +1573,22 @@ class SettingsDialog(QDialog):
         l.addWidget(QLabel(t("lbl_imgur", lang)))
         self._imgur_id_edit = QLineEdit(targets.get("imgur", {}).get("client_id", ""))
         l.addWidget(self._imgur_id_edit)
+        l.addWidget(self._hint(t("hint_imgur", lang)))
 
         l.addWidget(QLabel(t("lbl_webhook", lang)))
         self._custom_url_edit = QLineEdit(targets.get("custom_url", {}).get("url", ""))
         l.addWidget(self._custom_url_edit)
+        l.addWidget(self._hint(t("hint_custom_webhook", lang)))
 
         l.addWidget(QLabel(t("lbl_slack", lang)))
         self._slack_edit = QLineEdit(self._conf.get("slack_webhook", ""))
         l.addWidget(self._slack_edit)
+        l.addWidget(self._hint(t("hint_slack", lang)))
 
         l.addWidget(QLabel(t("lbl_teams", lang)))
         self._teams_edit = QLineEdit(self._conf.get("teams_webhook", ""))
         l.addWidget(self._teams_edit)
+        l.addWidget(self._hint(t("hint_teams", lang)))
 
         l.addStretch()
         return w
@@ -1577,6 +1596,8 @@ class SettingsDialog(QDialog):
     def _hotkeys_tab(self) -> QWidget:
         w = QWidget()
         l = QVBoxLayout(w)
+        lang = self._lang
+        l.addWidget(self._hint(t("hotkeys_tab_note", lang)))
         hk = self._conf.get("hotkeys", {})
         self._hk_fields: Dict[str, QLineEdit] = {}
         for key, default in hk.items():
@@ -1595,6 +1616,7 @@ class SettingsDialog(QDialog):
         self._check_updates_cb = QCheckBox(t("cb_check_updates", lang))
         self._check_updates_cb.setChecked(self._conf.get("check_updates", True))
         l.addWidget(self._check_updates_cb)
+        l.addWidget(self._hint(t("hint_check_updates", lang)))
 
         check_now_btn = QPushButton(t("btn_check_updates_now", lang))
         check_now_btn.clicked.connect(self._check_for_updates_now)
@@ -1619,6 +1641,7 @@ class SettingsDialog(QDialog):
         diag_row.addWidget(export_diag_btn)
         diag_row.addStretch()
         l.addLayout(diag_row)
+        l.addWidget(self._hint(t("hint_export_diag", lang)))
 
         l.addStretch()
         return w

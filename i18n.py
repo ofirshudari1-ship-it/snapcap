@@ -208,6 +208,22 @@ STRINGS = {
         "lbl_slack_webhook_short": "Slack webhook",
         "lbl_teams_webhook_short": "Teams webhook",
         "lbl_custom_webhook_short": "Custom webhook",
+        # Settings clarity pass — 2026-09-25: short muted sub-labels explaining
+        # what each non-obvious option actually does. See
+        # SettingsDialog._hint() in editor_window.py.
+        "hint_skip_editor": "Capture still auto-copies, saves, and redacts as configured below — only the annotation editor won't open.",
+        "hint_auto_redact": "Automatically blurs emails, phone numbers, API keys, and other sensitive text it detects in each capture.",
+        "hint_redact_style": "How a detected sensitive area gets covered: blur, pixelate, solid black, or a text label.",
+        "hint_auto_update": "Downloads and installs new versions automatically, then restarts SnapCap — no confirmation prompt.",
+        "hint_check_updates": "Only checks for a new version and notifies you. Installing still needs your confirmation, unless Auto-update is on.",
+        "hint_show_widget": "A small floating panel on your desktop showing this month's capture count, with one-click capture and library access.",
+        "hint_export_diag": "Bundles your logs, version info, and a redacted copy of your settings into one .zip you can send to support.",
+        "hint_imgur": "Lets you upload a screenshot to Imgur with one click. Get a free Client ID at api.imgur.com/oauth2/addclient.",
+        "hint_custom_webhook": "A URL that receives each shared screenshot as a file upload (POST request) — for your own server or automation.",
+        "hint_slack": "Paste a Slack Incoming Webhook URL to share screenshots directly to a Slack channel.",
+        "hint_teams": "Paste a Microsoft Teams webhook URL to share screenshots directly to a Teams channel.",
+        "hotkeys_tab_note": "Click a field and press the key combination you want, e.g. Ctrl+Shift+S.",
+        "onboarding_change_language_hint": "You can change the language any time in Settings.",
     },
     "he": {
         "app_name": "SnapCap",
@@ -395,6 +411,20 @@ STRINGS = {
         "lbl_slack_webhook_short": "Webhook של Slack",
         "lbl_teams_webhook_short": "Webhook של Teams",
         "lbl_custom_webhook_short": "Webhook מותאם אישית",
+        # Settings clarity pass — 2026-09-25
+        "hint_skip_editor": "הצילום עדיין מועתק, נשמר ומטושטש לפי שאר ההגדרות שלך - רק חלון העריכה לא ייפתח.",
+        "hint_auto_redact": "מטשטש אוטומטית אימיילים, מספרי טלפון, מפתחות API ופרטים רגישים נוספים שמזוהים בכל צילום.",
+        "hint_redact_style": "איך מכסים אזור רגיש שזוהה: טשטוש, פיקסול, צבע שחור מלא, או תווית טקסט.",
+        "hint_auto_update": "מוריד ומתקין גרסאות חדשות אוטומטית, ואז מפעיל מחדש את SnapCap - בלי לבקש אישור.",
+        "hint_check_updates": "בודק אם יש גרסה חדשה ומודיע לך בלבד. ההתקנה עדיין דורשת אישור, אלא אם עדכון אוטומטי מופעל.",
+        "hint_show_widget": "פאנל צף קטן בשולחן העבודה שמציג כמה צילומים בוצעו החודש, עם גישה מהירה לצילום ולספרייה.",
+        "hint_export_diag": "אורז את הלוגים, פרטי הגרסה ועותק מוסתר של ההגדרות שלך לקובץ zip אחד, לשליחה לתמיכה.",
+        "hint_imgur": "מאפשר להעלות צילום מסך ל-Imgur בלחיצה אחת. מזהה לקוח חינמי אפשר להשיג בכתובת api.imgur.com/oauth2/addclient.",
+        "hint_custom_webhook": "כתובת שמקבלת כל צילום משותף כקובץ (בקשת POST) - לשרת שלך או לאוטומציה.",
+        "hint_slack": "הדבק כתובת Slack Incoming Webhook כדי לשתף צילומים ישירות לערוץ ב-Slack.",
+        "hint_teams": "הדבק כתובת webhook של Microsoft Teams כדי לשתף צילומים ישירות לערוץ ב-Teams.",
+        "hotkeys_tab_note": "לחץ על שדה והקש את צירוף המקשים הרצוי, למשל Ctrl+Shift+S.",
+        "onboarding_change_language_hint": "אפשר לשנות שפה בכל עת בהגדרות.",
     },
 }
 
