@@ -1741,5 +1741,149 @@ class TestGifAndColorPickerTranslations(unittest.TestCase):
             self.assertNotEqual(en, he, f"{key} is identical in both languages")
 
 
+class TestLanguagePurityPass(unittest.TestCase):
+    """2026-09-26 pass: window titles, crash/uninstall dialogs, and the
+    editor's toolbox/sidebar/menu bar were hardcoded English regardless of
+    the app language — see i18n.py's "2026-09-26 language-purity pass"
+    section for the full key list. Same shape as
+    TestNewSettingsTranslations.test_new_keys_translated_both_languages
+    above: every new key must have a real, distinct EN and HE string."""
+
+    def test_new_keys_translated_both_languages(self):
+        from i18n import t
+        keys = [
+            "editor_window_title", "onboarding_window_title",
+            "crash_dialog_title", "crash_dialog_msg_fmt",
+            "uninstall_confirm_title", "uninstall_confirm_msg_fmt",
+            "uninstall_done_title", "uninstall_done_msg_fmt",
+            "tool_select", "tool_arrow", "tool_line", "tool_rect", "tool_ellipse",
+            "tool_highlight", "tool_text", "tool_pen", "tool_step", "tool_callout",
+            "tool_blur", "tool_pixelate", "tool_crop",
+            "tooltip_pick_color", "tooltip_stroke_width", "tooltip_text_size",
+            "cb_fill", "tooltip_fill_shape",
+            "status_ready", "status_copied_clipboard", "status_pinned",
+            "status_saved_fmt", "status_redacted_fmt", "status_ai_complete_fmt",
+            "status_ai_running",
+            "btn_copy_clipboard", "btn_save_file", "btn_save_as", "btn_upload_imgur",
+            "btn_open_mail", "btn_open_paint", "btn_ocr_all_text", "btn_ocr_table",
+            "section_ai_tools", "ai_group_understand", "ai_group_extract", "ai_group_create",
+            "ai_item_summarize", "ai_item_alt_text", "ai_item_structured_text",
+            "ai_item_steps", "ai_item_bug_report", "ai_item_title",
+            "section_smart_redaction", "btn_auto_redact_pii",
+            "ai_status_key_not_set", "ai_status_connected", "ai_status_set_key",
+            "placeholder_ai_output", "btn_reset_step_counter",
+            "dlg_open_image_title", "dlg_ocr_text_title", "dlg_ocr_table_title",
+            "msgbox_ocr_table_title", "msg_ocr_table_none", "msgbox_auto_redact_title",
+            "msg_redact_none", "msg_redact_found_fmt", "msgbox_ai_feature_title",
+            "msg_ai_key_not_set", "ai_error_fmt", "btn_copy_csv", "btn_close",
+            "imgur_uploaded_clipboard_fmt", "imgur_upload_failed_msg",
+            "result_label_summary", "result_label_alt_text", "result_label_extract",
+            "result_label_steps", "result_label_title", "result_label_bug_report",
+            "menu_file", "action_open_image_ellipsis", "action_close", "menu_edit",
+            "action_undo", "action_redo", "menu_view", "action_fit_window",
+            "menu_tools", "action_ocr_extract_text", "action_ocr_extract_table",
+            "action_settings_ellipsis", "menu_ai", "action_summarize_screenshot",
+            "action_extract_structured_text", "action_generate_step_list",
+            "action_smart_filename",
+        ]
+        # "menu_ai" is deliberately "AI" in both languages — a literal
+        # technical acronym, same category as a product name (see the
+        # existing "AI"/"Claude AI" literals already used inside Hebrew
+        # strings elsewhere in i18n.py), not a missed translation.
+        same_by_design = {"menu_ai"}
+        for key in keys:
+            en = t(key, "en")
+            he = t(key, "he")
+            self.assertNotEqual(en, key, f"{key} missing an English translation")
+            self.assertNotEqual(he, key, f"{key} missing a Hebrew translation")
+            if key not in same_by_design:
+                self.assertNotEqual(en, he, f"{key} is identical in both languages")
+
+
+class TestInstallerLanguageHandoff(unittest.TestCase):
+    """Verifies build/build_installer.py's _write_language_config (the
+    function the installer's InstallWorker/run_silent_install call once
+    the install completes) writes exactly the config.json shape config.py's
+    own load() expects, and that a fresh install's write survives a real
+    load() round-trip while an existing user's saved language is never
+    clobbered by a reinstall/update. Extracts the actual function source
+    out of build_installer.py's INSTALLER_SCRIPT template (rather than
+    duplicating its logic here) so this test breaks if that function ever
+    drifts from what's actually shipped in the installer."""
+
+    @staticmethod
+    def _load_write_language_config():
+        import re
+        import json as _json
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "build"))
+        import build_installer
+        src = build_installer.INSTALLER_SCRIPT
+        match = re.search(
+            r"def _write_language_config\(.*?\n(?=\ndef _is_app_running)",
+            src, re.DOTALL,
+        )
+        assert match, "_write_language_config not found in INSTALLER_SCRIPT — did it move/get renamed?"
+        namespace = {"Path": Path, "json": _json}
+        exec(match.group(0), namespace)
+        return namespace["_write_language_config"]
+
+    def test_fresh_install_writes_config_that_config_load_reads_back(self):
+        import json as _json
+        import config as cfg
+        write_language_config = self._load_write_language_config()
+
+        tmp_home = Path(_tempfile.mkdtemp(prefix="snapcap-installer-handoff-"))
+        real_home, real_config_dir, real_config_file = Path.home, cfg.CONFIG_DIR, cfg.CONFIG_FILE
+        try:
+            Path.home = staticmethod(lambda: tmp_home)
+            cfg.CONFIG_DIR = tmp_home / ".snapcap"
+            cfg.CONFIG_FILE = cfg.CONFIG_DIR / "config.json"
+            self.assertFalse(cfg.CONFIG_FILE.exists())
+
+            logged = []
+            write_language_config("he", log=logged.append)
+
+            self.assertTrue(cfg.CONFIG_FILE.exists())
+            on_disk = _json.loads(cfg.CONFIG_FILE.read_text(encoding="utf-8"))
+            self.assertEqual(on_disk, {"language": "he"})
+
+            loaded = cfg.load()
+            self.assertEqual(loaded["language"], "he")
+            # Every other default must still be present — the installer only
+            # ever writes the one "language" key, config.load()'s own
+            # _merge()/DEFAULT_CONFIG is what's responsible for the rest.
+            for key in cfg.DEFAULT_CONFIG:
+                self.assertIn(key, loaded)
+        finally:
+            Path.home = real_home
+            cfg.CONFIG_DIR = real_config_dir
+            cfg.CONFIG_FILE = real_config_file
+
+    def test_existing_config_is_never_overwritten(self):
+        import json as _json
+        import config as cfg
+        write_language_config = self._load_write_language_config()
+
+        tmp_home = Path(_tempfile.mkdtemp(prefix="snapcap-installer-handoff-"))
+        real_home, real_config_dir, real_config_file = Path.home, cfg.CONFIG_DIR, cfg.CONFIG_FILE
+        try:
+            Path.home = staticmethod(lambda: tmp_home)
+            cfg.CONFIG_DIR = tmp_home / ".snapcap"
+            cfg.CONFIG_FILE = cfg.CONFIG_DIR / "config.json"
+            cfg.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            cfg.CONFIG_FILE.write_text(
+                _json.dumps({"language": "he", "ai_enabled": True}), encoding="utf-8"
+            )
+
+            write_language_config("en", log=lambda m: None)  # simulates a reinstall/update
+
+            on_disk = _json.loads(cfg.CONFIG_FILE.read_text(encoding="utf-8"))
+            self.assertEqual(on_disk, {"language": "he", "ai_enabled": True})
+        finally:
+            Path.home = real_home
+            cfg.CONFIG_DIR = real_config_dir
+            cfg.CONFIG_FILE = real_config_file
+
+
 if __name__ == "__main__":
     unittest.main()

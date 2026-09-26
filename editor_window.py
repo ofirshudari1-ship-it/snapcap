@@ -657,7 +657,7 @@ class EditorWindow(QMainWindow):
         self._ai_worker: Optional[AIWorker] = None
         apply_theme(self._conf.get("theme", "system"))
 
-        self.setWindowTitle("SnapCap — Editor")
+        self.setWindowTitle(t("editor_window_title", current_language()))
         self.setMinimumSize(720, 480)
         # RTL (§18.1) — mirrors which side the tool panel/options panel sit
         # on and moves the tool-panel scrollbar to the leading (left-hand)
@@ -785,7 +785,7 @@ class EditorWindow(QMainWindow):
         # Status bar
         self.status = QStatusBar()
         self.setStatusBar(self.status)
-        self.status.showMessage("  Ready — select a tool and start annotating")
+        self.status.showMessage(f"  {t('status_ready', current_language())}")
 
     def _tool_btn(self, label: str, icon: str, tool_id: str, group: QButtonGroup) -> QToolButton:
         btn = QToolButton()
@@ -815,20 +815,21 @@ class EditorWindow(QMainWindow):
         group = QButtonGroup(self)
         group.setExclusive(True)
 
+        lang = current_language()
         tools = [
-            ("Select", "↖", TOOL_SELECT),
-            ("Arrow", "→", TOOL_ARROW),
-            ("Line", "╱", TOOL_LINE),
-            ("Rect", "□", TOOL_RECT),
-            ("Ellipse", "○", TOOL_ELLIPSE),
-            ("Highlight", "▬", TOOL_HIGHLIGHT),
-            ("Text", "T", TOOL_TEXT),
-            ("Pen", "✏", TOOL_PEN),
-            ("Step", "①", TOOL_STEP),
-            ("Callout", "💬", TOOL_CALLOUT),
-            ("Blur", "◎", TOOL_BLUR),
-            ("Pixelate", "⊞", TOOL_PIXELATE),
-            ("Crop", "⊡", TOOL_CROP),
+            (t("tool_select", lang), "↖", TOOL_SELECT),
+            (t("tool_arrow", lang), "→", TOOL_ARROW),
+            (t("tool_line", lang), "╱", TOOL_LINE),
+            (t("tool_rect", lang), "□", TOOL_RECT),
+            (t("tool_ellipse", lang), "○", TOOL_ELLIPSE),
+            (t("tool_highlight", lang), "▬", TOOL_HIGHLIGHT),
+            (t("tool_text", lang), "T", TOOL_TEXT),
+            (t("tool_pen", lang), "✏", TOOL_PEN),
+            (t("tool_step", lang), "①", TOOL_STEP),
+            (t("tool_callout", lang), "💬", TOOL_CALLOUT),
+            (t("tool_blur", lang), "◎", TOOL_BLUR),
+            (t("tool_pixelate", lang), "⊞", TOOL_PIXELATE),
+            (t("tool_crop", lang), "⊡", TOOL_CROP),
         ]
 
         self._tool_buttons: Dict[str, QToolButton] = {}
@@ -844,7 +845,7 @@ class EditorWindow(QMainWindow):
         # Color picker swatch
         self._color_btn = QPushButton()
         self._color_btn.setFixedSize(48, 28)
-        self._color_btn.setToolTip("Pick color")
+        self._color_btn.setToolTip(t("tooltip_pick_color", lang))
         self._update_color_btn()
         self._color_btn.clicked.connect(self._pick_color)
         layout.addWidget(self._color_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -853,7 +854,7 @@ class EditorWindow(QMainWindow):
         self._width_spin = QSpinBox()
         self._width_spin.setRange(1, 20)
         self._width_spin.setValue(3)
-        self._width_spin.setToolTip("Stroke width")
+        self._width_spin.setToolTip(t("tooltip_stroke_width", lang))
         self._width_spin.valueChanged.connect(lambda v: setattr(self.canvas, "line_width", v))
         self._width_spin.setFixedWidth(56)
         layout.addWidget(self._width_spin, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -863,15 +864,15 @@ class EditorWindow(QMainWindow):
         self._font_spin = QSpinBox()
         self._font_spin.setRange(8, 96)
         self._font_spin.setValue(18)
-        self._font_spin.setToolTip("Text size (Text / Callout tools)")
+        self._font_spin.setToolTip(t("tooltip_text_size", lang))
         self._font_spin.valueChanged.connect(lambda v: setattr(self.canvas, "font_size", v))
         self._font_spin.setFixedWidth(56)
         layout.addWidget(self._font_spin, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Fill toggle — Rect/Ellipse only; outline-only stays the default so
         # existing muscle memory/behavior doesn't change.
-        self._fill_cb = QCheckBox("Fill")
-        self._fill_cb.setToolTip("Fill Rect / Ellipse with the selected color")
+        self._fill_cb = QCheckBox(t("cb_fill", lang))
+        self._fill_cb.setToolTip(t("tooltip_fill_shape", lang))
         self._fill_cb.toggled.connect(lambda v: setattr(self.canvas, "fill_shape", bool(v)))
         layout.addWidget(self._fill_cb, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -969,13 +970,13 @@ class EditorWindow(QMainWindow):
         sl = QVBoxLayout(share_page)
         sl.setContentsMargins(4, 6, 4, 4)
         sl.setSpacing(6)
-        sl.addWidget(self._section_btn("📋  Copy to Clipboard", self._copy_clipboard))
-        sl.addWidget(self._section_btn("💾  Save File", self._save_file))
-        sl.addWidget(self._section_btn("📁  Save As…", self._save_as))
+        sl.addWidget(self._section_btn(f"📋  {t('btn_copy_clipboard', current_language())}", self._copy_clipboard))
+        sl.addWidget(self._section_btn(f"💾  {t('btn_save_file', current_language())}", self._save_file))
+        sl.addWidget(self._section_btn(f"📁  {t('btn_save_as', current_language())}", self._save_as))
         sl.addWidget(self._section_btn(t("pin_to_screen", current_language()), self._pin_to_screen))
-        sl.addWidget(self._section_btn("☁  Upload to Imgur", self._upload_imgur))
-        sl.addWidget(self._section_btn("✉  Open in Mail", self._open_mail))
-        sl.addWidget(self._section_btn("🖌  Open in Paint", self._open_paint))
+        sl.addWidget(self._section_btn(f"☁  {t('btn_upload_imgur', current_language())}", self._upload_imgur))
+        sl.addWidget(self._section_btn(f"✉  {t('btn_open_mail', current_language())}", self._open_mail))
+        sl.addWidget(self._section_btn(f"🖌  {t('btn_open_paint', current_language())}", self._open_paint))
         outer.addWidget(self._collapsible_section(t("editor_section_share_export", current_language()), share_page, expanded=True))
 
         # ── Extract Text (OCR) ───────────────────────────────────────────────
@@ -983,8 +984,8 @@ class EditorWindow(QMainWindow):
         ol = QVBoxLayout(ocr_page)
         ol.setContentsMargins(4, 6, 4, 4)
         ol.setSpacing(6)
-        ol.addWidget(self._section_btn("Extract All Text", self._ocr_text))
-        ol.addWidget(self._section_btn("Extract as Table/CSV", self._ocr_table))
+        ol.addWidget(self._section_btn(t("btn_ocr_all_text", current_language()), self._ocr_text))
+        ol.addWidget(self._section_btn(t("btn_ocr_table", current_language()), self._ocr_table))
         outer.addWidget(self._collapsible_section(t("editor_section_ocr", current_language()), ocr_page))
 
         # ── AI Tools — grouped by what they do, not one flat list ───────────
@@ -993,23 +994,24 @@ class EditorWindow(QMainWindow):
         al.setContentsMargins(4, 6, 4, 4)
         al.setSpacing(8)
 
-        self._ai_status = QLabel("⚙  API key not set")
+        self._ai_status = QLabel(f"⚙  {t('ai_status_key_not_set', current_language())}")
         self._ai_status.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px;")
         al.addWidget(self._ai_status)
         self._refresh_ai_status()
 
+        _lang_ai = current_language()
         ai_groups = [
-            ("Understand", [
-                ("📝  Summarize", "summarize"),
-                ("♿  Generate Alt-Text", "alt_text"),
+            (t("ai_group_understand", _lang_ai), [
+                (f"📝  {t('ai_item_summarize', _lang_ai)}", "summarize"),
+                (f"♿  {t('ai_item_alt_text', _lang_ai)}", "alt_text"),
             ]),
-            ("Extract", [
-                ("🔤  Structured Text", "extract"),
-                ("📋  Step-by-Step List", "steps"),
+            (t("ai_group_extract", _lang_ai), [
+                (f"🔤  {t('ai_item_structured_text', _lang_ai)}", "extract"),
+                (f"📋  {t('ai_item_steps', _lang_ai)}", "steps"),
             ]),
-            ("Create", [
-                ("🐛  Bug Report", "bug_report"),
-                ("✨  Smart Title/Filename", "title"),
+            (t("ai_group_create", _lang_ai), [
+                (f"🐛  {t('ai_item_bug_report', _lang_ai)}", "bug_report"),
+                (f"✨  {t('ai_item_title', _lang_ai)}", "title"),
             ]),
         ]
         for group_name, items in ai_groups:
@@ -1022,15 +1024,15 @@ class EditorWindow(QMainWindow):
             al.addWidget(gl)
             for label, task in items:
                 al.addWidget(self._section_btn(label, lambda _, t=task: self._run_ai(t)))
-        outer.addWidget(self._collapsible_section("AI Tools", ai_page))
+        outer.addWidget(self._collapsible_section(t("section_ai_tools", _lang_ai), ai_page))
 
         # ── Smart Redaction ──────────────────────────────────────────────────
         redact_page = QWidget()
         rl = QVBoxLayout(redact_page)
         rl.setContentsMargins(4, 6, 4, 4)
         rl.setSpacing(6)
-        rl.addWidget(self._section_btn("Auto-Redact PII", self._auto_redact))
-        outer.addWidget(self._collapsible_section("Smart Redaction", redact_page))
+        rl.addWidget(self._section_btn(t("btn_auto_redact_pii", _lang_ai), self._auto_redact))
+        outer.addWidget(self._collapsible_section(t("section_smart_redaction", _lang_ai), redact_page))
 
         outer.addStretch(1)
 
@@ -1054,12 +1056,12 @@ class EditorWindow(QMainWindow):
         fl.setSpacing(4)
 
         self._ai_output = QTextEdit()
-        self._ai_output.setPlaceholderText("AI / OCR results appear here…")
+        self._ai_output.setPlaceholderText(t("placeholder_ai_output", current_language()))
         self._ai_output.setFixedHeight(110)
         self._ai_output.setReadOnly(True)
         fl.addWidget(self._ai_output)
 
-        reset_step_btn = QPushButton("↺  Reset Step Counter")
+        reset_step_btn = QPushButton(f"↺  {t('btn_reset_step_counter', current_language())}")
         reset_step_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_step_btn.setStyleSheet(f"color: {MUTED_FG}; font-size: 11px; background: transparent; border: none;")
         reset_step_btn.clicked.connect(lambda: setattr(self.canvas, "_step_counter", 1))
@@ -1088,38 +1090,39 @@ class EditorWindow(QMainWindow):
         return act
 
     def _build_menubar(self):
+        lang = current_language()
         mb = self.menuBar()
 
-        file_menu = mb.addMenu("File")
-        self._add_action(file_menu, "Open Image…", self._open_image, "Ctrl+O")
-        self._add_action(file_menu, "Save", self._save_file, "Ctrl+S")
-        self._add_action(file_menu, "Save As…", self._save_as, "Ctrl+Shift+S")
+        file_menu = mb.addMenu(t("menu_file", lang))
+        self._add_action(file_menu, t("action_open_image_ellipsis", lang), self._open_image, "Ctrl+O")
+        self._add_action(file_menu, t("save", lang), self._save_file, "Ctrl+S")
+        self._add_action(file_menu, t("btn_save_as", lang), self._save_as, "Ctrl+Shift+S")
         file_menu.addSeparator()
-        self._add_action(file_menu, "Close", self.close, "Ctrl+W")
+        self._add_action(file_menu, t("action_close", lang), self.close, "Ctrl+W")
 
-        edit_menu = mb.addMenu("Edit")
-        self._add_action(edit_menu, "Undo", self.canvas.undo, "Ctrl+Z")
-        self._add_action(edit_menu, "Redo", self.canvas.redo, "Ctrl+Y")
+        edit_menu = mb.addMenu(t("menu_edit", lang))
+        self._add_action(edit_menu, t("action_undo", lang), self.canvas.undo, "Ctrl+Z")
+        self._add_action(edit_menu, t("action_redo", lang), self.canvas.redo, "Ctrl+Y")
         edit_menu.addSeparator()
-        self._add_action(edit_menu, "Copy to Clipboard", self._copy_clipboard, "Ctrl+C")
+        self._add_action(edit_menu, t("btn_copy_clipboard", lang), self._copy_clipboard, "Ctrl+C")
 
-        view_menu = mb.addMenu("View")
-        self._add_action(view_menu, "Fit to Window", self.canvas._fit_to_window, "Ctrl+0")
+        view_menu = mb.addMenu(t("menu_view", lang))
+        self._add_action(view_menu, t("action_fit_window", lang), self.canvas._fit_to_window, "Ctrl+0")
 
-        tools_menu = mb.addMenu("Tools")
-        self._add_action(tools_menu, "OCR — Extract Text", self._ocr_text)
-        self._add_action(tools_menu, "OCR — Extract Table", self._ocr_table)
-        self._add_action(tools_menu, "Auto-Redact PII", self._auto_redact)
+        tools_menu = mb.addMenu(t("menu_tools", lang))
+        self._add_action(tools_menu, t("action_ocr_extract_text", lang), self._ocr_text)
+        self._add_action(tools_menu, t("action_ocr_extract_table", lang), self._ocr_table)
+        self._add_action(tools_menu, t("btn_auto_redact_pii", lang), self._auto_redact)
         tools_menu.addSeparator()
-        self._add_action(tools_menu, "Settings…", self._open_settings)
+        self._add_action(tools_menu, t("action_settings_ellipsis", lang), self._open_settings)
 
-        ai_menu = mb.addMenu("AI")
-        self._add_action(ai_menu, "Summarize Screenshot", lambda: self._run_ai("summarize"))
-        self._add_action(ai_menu, "Generate Alt-Text", lambda: self._run_ai("alt_text"))
-        self._add_action(ai_menu, "Extract Structured Text", lambda: self._run_ai("extract"))
-        self._add_action(ai_menu, "Generate Step List", lambda: self._run_ai("steps"))
-        self._add_action(ai_menu, "Bug Report", lambda: self._run_ai("bug_report"))
-        self._add_action(ai_menu, "Smart Filename", lambda: self._run_ai("title"))
+        ai_menu = mb.addMenu(t("menu_ai", lang))
+        self._add_action(ai_menu, t("action_summarize_screenshot", lang), lambda: self._run_ai("summarize"))
+        self._add_action(ai_menu, t("ai_item_alt_text", lang), lambda: self._run_ai("alt_text"))
+        self._add_action(ai_menu, t("action_extract_structured_text", lang), lambda: self._run_ai("extract"))
+        self._add_action(ai_menu, t("action_generate_step_list", lang), lambda: self._run_ai("steps"))
+        self._add_action(ai_menu, t("ai_item_bug_report", lang), lambda: self._run_ai("bug_report"))
+        self._add_action(ai_menu, t("action_smart_filename", lang), lambda: self._run_ai("title"))
 
     # ── Shortcuts ──────────────────────────────────────────────────────────────
     def _build_shortcuts(self):
@@ -1171,7 +1174,7 @@ class EditorWindow(QMainWindow):
     def _copy_clipboard(self):
         img = self._get_final()
         sm.copy_to_clipboard(img)
-        self.status.showMessage("  ✓ Copied to clipboard")
+        self.status.showMessage(f"  ✓ {t('status_copied_clipboard', current_language())}")
 
     def _pin_to_screen(self):
         """Open the current annotated image as an always-on-top floating
@@ -1190,12 +1193,12 @@ class EditorWindow(QMainWindow):
             screen.center().y() - pin.height() // 2,
         )
         pin.show()
-        self.status.showMessage("  📌 Pinned to screen — drag to move, scroll to resize, right-click to close")
+        self.status.showMessage(f"  📌 {t('status_pinned', current_language())}")
 
     def _save_file(self):
         img = self._get_final()
         path = sm.save_image(img)
-        self.status.showMessage(f"  ✓ Saved: {path}")
+        self.status.showMessage(f"  ✓ {t('status_saved_fmt', current_language(), path=path)}")
 
     def _save_as(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -1212,21 +1215,22 @@ class EditorWindow(QMainWindow):
                 img.save(dest, "WEBP", quality=90)
             else:
                 img.save(dest, "PNG", optimize=True)
-            self.status.showMessage(f"  ✓ Saved: {path}")
+            self.status.showMessage(f"  ✓ {t('status_saved_fmt', current_language(), path=path)}")
 
     def _upload_imgur(self):
+        lang = current_language()
         cid = self._conf.get("upload_targets", {}).get("imgur", {}).get("client_id", "")
         if not cid:
-            QMessageBox.warning(self, "Imgur", "Set your Imgur Client ID in Settings first.")
+            QMessageBox.warning(self, "Imgur", t("lib_imgur_set_key_msg", lang))
             return
         img = self._get_final()
         url = sm.upload_imgur(img, cid)
         if url:
             import pyperclip
             pyperclip.copy(url)
-            QMessageBox.information(self, "Imgur", f"Uploaded!\n{url}\n\n(URL copied to clipboard)")
+            QMessageBox.information(self, "Imgur", t("imgur_uploaded_clipboard_fmt", lang, url=url))
         else:
-            QMessageBox.critical(self, "Imgur", "Upload failed.")
+            QMessageBox.critical(self, "Imgur", t("imgur_upload_failed_msg", lang))
 
     def _open_mail(self):
         img = self._get_final()
@@ -1239,7 +1243,8 @@ class EditorWindow(QMainWindow):
         sm.open_in_paint(path)
 
     def _open_image(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
+        lang = current_language()
+        path, _ = QFileDialog.getOpenFileName(self, t("dlg_open_image_title", lang), "", "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
         if path:
             img = Image.open(path)
             self.canvas.set_image(img)
@@ -1247,51 +1252,55 @@ class EditorWindow(QMainWindow):
     def _ocr_text(self):
         img = self._get_final()
         text = ai.ocr_extract_text(img)
-        self._show_text_result("OCR — Extracted Text", text)
+        self._show_text_result(t("dlg_ocr_text_title", current_language()), text)
 
     def _ocr_table(self):
+        lang = current_language()
         img = self._get_final()
         table = ai.ocr_extract_table(img)
         if table:
             csv_text = ai.table_to_csv(table)
-            self._show_text_result("OCR — Table (CSV)", csv_text, copyable=True)
+            self._show_text_result(t("dlg_ocr_table_title", lang), csv_text, copyable=True)
         else:
-            QMessageBox.information(self, "OCR Table", "No table structure detected in the image.")
+            QMessageBox.information(self, t("msgbox_ocr_table_title", lang), t("msg_ocr_table_none", lang))
 
     def _auto_redact(self):
+        lang = current_language()
         img = self._get_final()
         types = ["email", "phone", "credit_card", "api_key", "israeli_id"]
         redacted, findings = ai.auto_redact(img, types, style="blur")
         if not findings:
-            QMessageBox.information(self, "Auto-Redact", "No sensitive data (PII) detected.")
+            QMessageBox.information(self, t("msgbox_auto_redact_title", lang), t("msg_redact_none", lang))
             return
         summary = "\n".join(f"  • {f['type']}: {f['text']}" for f in findings[:10])
         reply = QMessageBox.question(
-            self, "Auto-Redact",
-            f"Found {len(findings)} sensitive item(s):\n{summary}\n\nApply redaction?",
+            self, t("msgbox_auto_redact_title", lang),
+            t("msg_redact_found_fmt", lang, n=len(findings), summary=summary),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.canvas.set_image(redacted)
-            self.status.showMessage(f"  ✓ Redacted {len(findings)} items")
+            self.status.showMessage(f"  ✓ {t('status_redacted_fmt', lang, n=len(findings))}")
 
     def _refresh_ai_status(self):
+        lang = current_language()
         key = self._conf.get("anthropic_api_key", "")
         if key:
-            self._ai_status.setText("✅  Claude API connected")
+            self._ai_status.setText(f"✅  {t('ai_status_connected', lang)}")
             # Was a hardcoded "#1dd1a1" — 1.8:1 against the light theme's
             # PANEL_BG (fails WCAG AA); ACCENT_TEXT is the theme-aware
             # color, >=5.2:1 against both DARK_BG and PANEL_BG in both themes.
             self._ai_status.setStyleSheet(f"color: {ACCENT_TEXT}; font-size: 11px;")
         else:
-            self._ai_status.setText("⚙  Set API key in Settings")
+            self._ai_status.setText(f"⚙  {t('ai_status_set_key', lang)}")
 
     def _run_ai(self, task: str):
+        lang = current_language()
         key = self._conf.get("anthropic_api_key", "")
         if not key:
             reply = QMessageBox.question(
-                self, "AI Feature",
-                "Anthropic API key not set. Open Settings to add it?",
+                self, t("msgbox_ai_feature_title", lang),
+                t("msg_ai_key_not_set", lang),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
@@ -1299,26 +1308,28 @@ class EditorWindow(QMainWindow):
             return
 
         img = self._get_final()
-        self._ai_output.setPlainText("⏳ Running AI analysis…")
+        self._ai_output.setPlainText(f"⏳ {t('status_ai_running', lang)}")
         self._ai_worker = AIWorker(task, img, key)
         self._ai_worker.result_ready.connect(self._on_ai_result)
-        self._ai_worker.error.connect(lambda e: self._ai_output.setPlainText(f"Error: {e}"))
+        self._ai_worker.error.connect(lambda e: self._ai_output.setPlainText(t("ai_error_fmt", current_language(), e=e)))
         self._ai_worker.start()
 
     def _on_ai_result(self, task: str, result: str):
+        lang = current_language()
         labels = {
-            "summarize": "📝 Summary",
-            "alt_text": "♿ Alt-Text",
-            "extract": "🔤 Extracted Text",
-            "steps": "📋 Steps",
-            "title": "✨ Suggested Filename",
-            "bug_report": "🐛 Bug Report",
+            "summarize": t("result_label_summary", lang),
+            "alt_text": t("result_label_alt_text", lang),
+            "extract": t("result_label_extract", lang),
+            "steps": t("result_label_steps", lang),
+            "title": t("result_label_title", lang),
+            "bug_report": t("result_label_bug_report", lang),
         }
         label = labels.get(task, task)
         self._ai_output.setPlainText(f"{label}:\n\n{result}")
-        self.status.showMessage(f"  ✓ AI {label} complete")
+        self.status.showMessage(f"  ✓ {t('status_ai_complete_fmt', lang, label=label)}")
 
     def _show_text_result(self, title: str, text: str, copyable: bool = False):
+        lang = current_language()
         dlg = QDialog(self)
         dlg.setWindowTitle(title)
         dlg.setMinimumSize(500, 350)
@@ -1329,10 +1340,10 @@ class EditorWindow(QMainWindow):
         layout.addWidget(te)
         btns = QHBoxLayout()
         if copyable:
-            cp = QPushButton("Copy CSV")
+            cp = QPushButton(t("btn_copy_csv", lang))
             cp.clicked.connect(lambda: pyperclip.copy(text))
             btns.addWidget(cp)
-        close = QPushButton("Close")
+        close = QPushButton(t("btn_close", lang))
         close.clicked.connect(dlg.accept)
         btns.addWidget(close)
         layout.addLayout(btns)

@@ -1,5 +1,6 @@
 {
-  "version": "1.15.0",
+  "version": "1.16.0",
   "name": "SnapCap",
-  "publisher": "SnapCap"
+  "publisher": "SnapCap",
+  "buildDate": "2026-09-26"
 }

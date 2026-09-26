@@ -60,10 +60,10 @@ def _install_crash_handler():
         except Exception:
             pass
         try:
+            _lang = current_language()
             QMessageBox.critical(
-                None, "SnapCap — Error",
-                f"Something went wrong:\n\n{exc_value}\n\n"
-                f"Details were saved to:\n{log_path}",
+                None, t("crash_dialog_title", _lang),
+                t("crash_dialog_msg_fmt", _lang, error=exc_value, log_path=log_path),
             )
         except Exception:
             pass
@@ -1107,11 +1107,10 @@ def _run_uninstall():
     # Ask whether to also delete user data (config, library, OCR index) —
     # default "no", per the project standard (destructive-by-default is a footgun)
     _app = QApplication.instance() or QApplication(sys.argv)
+    _lang = current_language()
     reply = QMessageBox.question(
-        None, "Uninstall SnapCap",
-        "SnapCap will now be removed.\n\n"
-        "Also delete your saved settings and screenshot library "
-        f"({cfg.CONFIG_DIR})?",
+        None, t("uninstall_confirm_title", _lang),
+        t("uninstall_confirm_msg_fmt", _lang, dir=cfg.CONFIG_DIR),
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.No,
     )
@@ -1119,9 +1118,8 @@ def _run_uninstall():
         shutil.rmtree(cfg.CONFIG_DIR, ignore_errors=True)
 
     QMessageBox.information(
-        None, "Uninstall SnapCap",
-        "SnapCap has been removed.\n\n"
-        "You can now delete the installation folder:\n" + str(install_dir),
+        None, t("uninstall_done_title", _lang),
+        t("uninstall_done_msg_fmt", _lang, dir=install_dir),
     )
 
     # Self-delete the install directory on next reboot-independent pass isn't

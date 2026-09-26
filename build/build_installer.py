@@ -33,7 +33,7 @@ from config import APP_VERSION as APP_VER  # single source of truth for the vers
 # then compile THAT script with PyInstaller.
 
 INSTALLER_SCRIPT = r'''
-import sys, os, shutil, winreg, subprocess, zipfile, io, base64, struct, threading, locale, time
+import sys, os, shutil, winreg, subprocess, zipfile, io, base64, struct, threading, locale, time, json
 from pathlib import Path
 
 APP_NAME   = "SnapCap"
@@ -137,6 +137,39 @@ def _write_registry_entry(install_dir: Path, log=lambda m: None):
         winreg.CloseKey(key)
     except Exception as e:
         log(f"  Registry warning: {e}")
+
+
+def _write_language_config(lang_code: str, log=lambda m: None):
+    """Seeds the main app's real config.json with the language the user just
+    picked (or left on its default, English) two screens earlier in this
+    same installer — the exact same file/location/schema config.py's
+    load()/save() use (Path.home()/".snapcap"/"config.json", merged over
+    DEFAULT_CONFIG, keyed "language"). This is what makes the installer's
+    choice the one config.load() actually sees on first launch, instead of
+    the app ever having to guess from the Windows OS locale — which is
+    exactly the silent-switch-to-Hebrew failure mode STANDARDS.md §4's
+    2026-09-14 decision (config.py DEFAULT_CONFIG always defaults to "en")
+    was written to avoid. That decision is preserved here unchanged: this
+    only writes what the user explicitly chose in the wizard.
+
+    Deliberately only touches a config.json that doesn't exist yet — a
+    reinstall/update over an existing install must never clobber a user's
+    already-saved language preference. ~/.snapcap/library, save_dir, API
+    keys, etc. are untouched either way; this writes only the "language"
+    key and lets config.py's own _merge()/DEFAULT_CONFIG fill in every
+    other field the first time the app itself calls load()."""
+    try:
+        config_dir = Path.home() / ".snapcap"
+        config_file = config_dir / "config.json"
+        if config_file.exists():
+            log("  Language: existing config.json found — leaving saved preference untouched")
+            return
+        config_dir.mkdir(parents=True, exist_ok=True)
+        with open(config_file, "w", encoding="utf-8") as f:
+            json.dump({"language": lang_code}, f, indent=2, ensure_ascii=False)
+        log(f"  Language: seeded config.json with language={lang_code!r} (fresh install)")
+    except Exception as e:
+        log(f"  Language config warning: {e}")
 
 
 def _is_app_running() -> bool:
@@ -243,6 +276,12 @@ def run_silent_install(argv) -> int:
                 _log("Shortcuts created (first-time install)")
             except Exception as e:
                 _log(f"Shortcut step warning: {e}")
+            # No language-picker UI in the unattended path, so seed the same
+            # "en" default config.py's DEFAULT_CONFIG uses — never a
+            # silent OS-locale guess. Still a no-op if config.json somehow
+            # already exists (e.g. a previous non-silent install this
+            # machine never got a registry entry for).
+            _write_language_config("en", log=_log)
         else:
             _log("Update install — leaving existing shortcuts as-is")
 
@@ -713,7 +752,9 @@ class InstallPage(BasePage):
             QApplication.instance().quit()
             return
         vals = self._get_dir_values()
-        self._worker = InstallWorker(vals["install_dir"], vals["desktop"], vals["startmenu"], vals["startup"])
+        self._worker = InstallWorker(
+            vals["install_dir"], vals["desktop"], vals["startmenu"], vals["startup"], LANG["code"]
+        )
         self._worker.progress.connect(self._bar.setValue)
         self._worker.status.connect(self._status.setText)
         self._worker.log.connect(self._log_line)
@@ -762,12 +803,18 @@ class InstallWorker(QThread):
     log      = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self, install_dir, desktop, startmenu, startup):
+    def __init__(self, install_dir, desktop, startmenu, startup, lang_code):
         super().__init__()
         self.install_dir = install_dir
         self.desktop = desktop
         self.startmenu = startmenu
         self.startup = startup
+        # Captured once, at the moment the user pressed Next off the
+        # install-location page (the language toggle lives there and the
+        # wizard doesn't allow going back from the Install page) — this is
+        # exactly what they picked, or the pre-selected English default if
+        # they never touched it.
+        self.lang_code = lang_code
 
     def run(self):
         try:
@@ -824,6 +871,14 @@ class InstallWorker(QThread):
             self._write_registry(dest)
             self.log.emit("✓ Registry entry written")
             self.progress.emit(95)
+
+            # Seed the main app's real config.json with the language the
+            # user picked in this wizard (see _write_language_config) — a
+            # no-op if a config.json already exists (reinstall/update over
+            # a machine with a saved preference).
+            self.status.emit("Saving language preference…")
+            _write_language_config(self.lang_code, log=self.log.emit)
+            self.log.emit("✓ Language preference saved")
 
             self.status.emit("Done!")
             self.log.emit("✓ Installation complete")

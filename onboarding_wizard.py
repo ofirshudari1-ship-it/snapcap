@@ -486,7 +486,7 @@ class OnboardingWizard(QDialog):
         super().__init__(parent)
         self._conf = cfg.load()
         self._lang = current_language()
-        self.setWindowTitle("SnapCap — Welcome")
+        self.setWindowTitle(t("onboarding_window_title", self._lang))
         self.setFixedSize(640, 620)
         self.setWindowFlags(
             Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
@@ -646,6 +646,7 @@ class OnboardingWizard(QDialog):
             self._stack.addWidget(p)
         self._back_btn.setText(t("back", self._lang))
         self._skip_btn.setText(t("skip_setup", self._lang))
+        self.setWindowTitle(t("onboarding_window_title", self._lang))
         self._page = current
         self._refresh_nav()
 
