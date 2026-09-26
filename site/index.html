@@ -190,9 +190,6 @@
   .feat .fi { font-size: 22px; }
   .feat h3 { font-size: 15px; }
   .feat p { font-size: 13.5px; color: var(--ink-soft); }
-  .feat.new { border-color: var(--accent-wash-strong); background: linear-gradient(180deg, var(--accent-wash), transparent 60%); }
-  .new-tag { position: absolute; top: 14px; right: 14px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; background: var(--accent-1); color: var(--on-accent); border-radius: 999px; padding: 2px 8px; }
-  html[dir="rtl"] .new-tag { right: auto; left: 14px; }
 
   /* ============ Screenshots placeholder ============ */
   .shot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -264,13 +261,13 @@
       <span class="ver-badge" data-gh-version="snapcap">v1.14.0</span>
     </div>
     <nav class="links">
-      <a href="#how">How it works</a>
       <a href="#why">Why SnapCap</a>
+      <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#screens">In action</a>
       <a href="#privacy">Privacy</a>
-      <a href="#versions">Changelog</a>
       <a href="#install">Download</a>
+      <a href="#versions">Changelog</a>
       <a href="#faq">FAQ</a>
     </nav>
     <button class="lang-toggle" onclick="setSiteLang('he')" aria-label="Switch to Hebrew">🌐 עברית</button>
@@ -281,7 +278,7 @@
   <div class="wrap hero-grid">
     <div>
       <p class="eyebrow">Windows tray tool · local-first screenshot capture</p>
-      <h1>Capture the screen.<br>Edit it in seconds.<br><em>Nothing leaves your PC</em> unless you say so.</h1>
+      <h1>Your screenshot has a phone number in it.<br>SnapCap blurs it <em>before you hit save.</em></h1>
       <p class="lede">
         SnapCap lives quietly in your system tray: region, full-screen, window,
         or scrolling capture, a fast editor for highlights and blur, local OCR
@@ -327,34 +324,6 @@
   </div>
 </section>
 
-<section id="how">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">How it works</p>
-      <h2>Four steps, all on your machine</h2>
-      <p>No account, no server round-trip for the core workflow — capture to share in a few seconds.</p>
-    </div>
-    <div class="ps-grid" style="grid-template-columns:repeat(4,1fr);gap:18px;">
-      <div class="ps-card" style="text-align:left;">
-        <h3>1. 📷 Capture</h3>
-        <p>Press a global hotkey (<span class="mono">Ctrl+Shift+S/F/W/L</span>) to grab a region, the full screen, one window, or a long scrolling page — from anywhere, even while SnapCap is in the tray.</p>
-      </div>
-      <div class="ps-card" style="text-align:left;">
-        <h3>2. 🖊️ Edit</h3>
-        <p>The built-in editor opens instantly: highlight, blur, arrows/shapes, text, watermark, background removal — or skip straight to OCR / PII redaction.</p>
-      </div>
-      <div class="ps-card" style="text-align:left;">
-        <h3>3. 🛡️ Protect</h3>
-        <p>Automatic PII detection finds emails, phone numbers, card numbers, and API keys and blurs them — locally, before anything is exported or shared.</p>
-      </div>
-      <div class="ps-card" style="text-align:left;">
-        <h3>4. 📤 Share</h3>
-        <p>Copy to clipboard, save to your local library, or send to Imgur/S3/a custom URL/Slack/Teams — only if you've configured that destination yourself.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section id="why">
   <div class="wrap">
     <div class="section-head">
@@ -387,22 +356,48 @@
   </div>
 </section>
 
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2>Four steps, all on your machine</h2>
+      <p>No account, no server round-trip for the core workflow — capture to share in a few seconds.</p>
+    </div>
+    <div class="ps-grid" style="grid-template-columns:repeat(4,1fr);gap:18px;">
+      <div class="ps-card" style="text-align:left;">
+        <h3>1. 📷 Capture</h3>
+        <p>Press a global hotkey (<span class="mono">Ctrl+Shift+S/F/W/L</span>) to grab a region, the full screen, one window, or a long scrolling page — from anywhere, even while SnapCap is in the tray.</p>
+      </div>
+      <div class="ps-card" style="text-align:left;">
+        <h3>2. 🖊️ Edit</h3>
+        <p>The built-in editor opens instantly: highlight, blur, arrows/shapes, text, watermark, background removal — or skip straight to OCR / PII redaction.</p>
+      </div>
+      <div class="ps-card" style="text-align:left;">
+        <h3>3. 🛡️ Protect</h3>
+        <p>Automatic PII detection finds emails, phone numbers, card numbers, and API keys and blurs them — locally, before anything is exported or shared.</p>
+      </div>
+      <div class="ps-card" style="text-align:left;">
+        <h3>4. 📤 Share</h3>
+        <p>Copy to clipboard, save to your local library, or send to Imgur/S3/a custom URL/Slack/Teams — only if you've configured that destination yourself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="features" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Capabilities</p>
       <h2>What's inside</h2>
-      <p>Two brand-new additions in v1.4.0, plus everything SnapCap already covered.</p>
+      <p>Capture, edit, redact, and search — everything below runs locally unless you turn on cloud AI yourself.</p>
     </div>
     <div class="feat-grid">
-      <div class="feat new">
-        <span class="new-tag">NEW · 1.4.0</span>
+      <div class="feat">
         <span class="fi">📌</span>
         <h3>Pin to Screen</h3>
         <p>Float the current capture as a frameless, always-on-top window — drag to move, scroll to resize (0.2×–3×), right-click or double-click to close. Handy for comparing a mock against a live page.</p>
       </div>
-      <div class="feat new">
-        <span class="new-tag">NEW · 1.4.0</span>
+      <div class="feat">
         <span class="fi">⚡</span>
         <h3>Quick Text Capture</h3>
         <p><span class="mono">Ctrl+Shift+T</span> — select a region and its text is OCR'd locally and copied straight to the clipboard, no editor window, no cloud call. Built for "I just need this text, fast."</p>
@@ -510,6 +505,56 @@
   </div>
 </section>
 
+<section id="auto-updates" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Stay current</p>
+      <h2>Automatic updates</h2>
+      <p>You never have to remember to check for a new version.</p>
+    </div>
+    <div class="privacy-card">
+      <div class="privacy-row">
+        <span class="pi">🔄</span>
+        <div><h4>SnapCap checks GitHub for new releases on its own</h4><p>A few seconds after startup, a background check (never on the main thread, never blocking the UI) asks GitHub's public Releases API for the latest published version of <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a> and compares it to the version you're running.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🔔</span>
+        <div><h4>A newer version shows a tray notification — that's it</h4><p>Click the notification to open the release page in your browser and grab the new installer yourself. Nothing downloads or installs automatically, and a failed check (offline, GitHub unreachable) never shows an error — it just quietly tries again next time.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">⚙️</span>
+        <div><h4>Fully optional, and manual too</h4><p>Turn it off any time in Settings → Advanced ("Automatically check for updates"), or trigger a check on demand with the "Check for Updates Now" button right next to it.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Download</p>
+      <h2>Get SnapCap for Windows</h2>
+      <p>One installer, both languages built in. Full guide + troubleshooting: <span class="mono">README.md</span>.</p>
+    </div>
+    <div class="dl-card">
+      <div class="dl-icon">⬇</div>
+      <div class="dl-info">
+        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> for Windows 10/11</h3>
+        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
+        <div class="facts">≈140 MB · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
+      </div>
+      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">Download installer</a>
+    </div>
+    <ol class="install-steps">
+      <li>Run <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
+      <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
+      <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
+      <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
+    </ol>
+    <p class="install-note">Windows may show a SmartScreen warning because the installer isn't code-signed yet — click "More info" → "Run anyway". This is expected for small independent tools and doesn't indicate anything was tampered with. Releases and source live on GitHub: <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a>.</p>
+  </div>
+</section>
+
 <section id="versions">
   <div class="wrap">
     <div class="section-head">
@@ -556,6 +601,9 @@
           <li><b>Changed</b>: the installer wizard and splash screen now use a shared dark-blue palette instead of SnapCap's own teal/blue — the running app itself (tray, widget, Library, Editor) is unchanged.</li>
         </ul>
       </div>
+<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">Showing the 5 most recent releases. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog on GitHub</a>, or expand below.</p>
+      <details>
+        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">Show 14 earlier releases (v1.11.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Closes the items the previous audit pass left open — real Hebrew/English text everywhere, a corrected uninstall registry location, and High Contrast support for first-run setup.</p>
@@ -643,57 +691,8 @@
         <div class="cl-head"><span class="cl-ver">v1.2.0</span><span class="cl-date">2026-09-15</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);">Rebrand: SnapAI Pro → <b>SnapCap</b>, new teal/blue identity (<span class="mono">#00d9a3</span> / <span class="mono">#3b82f6</span>), WCAG-AA contrast fixes across every accent button.</p>
       </div>
+      </details>
     </div>
-  </div>
-</section>
-
-<section id="auto-updates" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Stay current</p>
-      <h2>Automatic updates</h2>
-      <p>You never have to remember to check for a new version.</p>
-    </div>
-    <div class="privacy-card">
-      <div class="privacy-row">
-        <span class="pi">🔄</span>
-        <div><h4>SnapCap checks GitHub for new releases on its own</h4><p>A few seconds after startup, a background check (never on the main thread, never blocking the UI) asks GitHub's public Releases API for the latest published version of <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a> and compares it to the version you're running.</p></div>
-      </div>
-      <div class="privacy-row">
-        <span class="pi">🔔</span>
-        <div><h4>A newer version shows a tray notification — that's it</h4><p>Click the notification to open the release page in your browser and grab the new installer yourself. Nothing downloads or installs automatically, and a failed check (offline, GitHub unreachable) never shows an error — it just quietly tries again next time.</p></div>
-      </div>
-      <div class="privacy-row">
-        <span class="pi">⚙️</span>
-        <div><h4>Fully optional, and manual too</h4><p>Turn it off any time in Settings → Advanced ("Automatically check for updates"), or trigger a check on demand with the "Check for Updates Now" button right next to it.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="install" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Download</p>
-      <h2>Get SnapCap for Windows</h2>
-      <p>One installer, both languages built in. Full guide + troubleshooting: <span class="mono">README.md</span>.</p>
-    </div>
-    <div class="dl-card">
-      <div class="dl-icon">⬇</div>
-      <div class="dl-info">
-        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> for Windows 10/11</h3>
-        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
-        <div class="facts">≈140 MB · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
-      </div>
-      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">Download installer</a>
-    </div>
-    <ol class="install-steps">
-      <li>Run <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
-      <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
-      <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
-      <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
-    </ol>
-    <p class="install-note">Windows may show a SmartScreen warning because the installer isn't code-signed yet — click "More info" → "Run anyway". This is expected for small independent tools and doesn't indicate anything was tampered with. Releases and source live on GitHub: <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a>.</p>
   </div>
 </section>
 
@@ -757,13 +756,13 @@
       <span class="ver-badge" data-gh-version="snapcap">v1.14.0</span>
     </div>
     <nav class="links">
-      <a href="#how-he">איך זה עובד</a>
       <a href="#why-he">למה SnapCap</a>
+      <a href="#how-he">איך זה עובד</a>
       <a href="#features-he">יכולות</a>
       <a href="#screens-he">בפעולה</a>
       <a href="#privacy-he">פרטיות</a>
-      <a href="#versions-he">יומן שינויים</a>
       <a href="#install-he">הורדה</a>
+      <a href="#versions-he">יומן שינויים</a>
       <a href="#faq-he">שאלות נפוצות</a>
     </nav>
     <button class="lang-toggle" onclick="setSiteLang('en')" aria-label="Switch to English">🌐 English</button>
@@ -774,7 +773,7 @@
   <div class="wrap hero-grid">
     <div>
       <p class="eyebrow">כלי למגש המערכת של Windows · לכידת מסך מקומית-תחילה</p>
-      <h1>לוכדים את המסך.<br>עורכים תוך שניות.<br><em>שום דבר לא יוצא מהמחשב</em> אלא אם ביקשתם.</h1>
+      <h1>יש בצילום שלכם מספר טלפון?<br>SnapCap מטשטש אותו <em>לפני שאתם שומרים.</em></h1>
       <p class="lede">
         SnapCap יושב בשקט במגש המערכת: לכידת אזור, מסך מלא, חלון ספציפי או
         גלילה ארוכה, עורך מהיר להדגשות וטשטוש, OCR מקומי עם הסתרה אוטומטית
@@ -819,34 +818,6 @@
   </div>
 </section>
 
-<section id="how-he">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">איך זה עובד</p>
-      <h2>ארבעה שלבים, הכול על המחשב שלכם</h2>
-      <p>בלי חשבון, בלי קריאה לשרת בשביל התהליך הבסיסי — מלכידה לשיתוף תוך כמה שניות.</p>
-    </div>
-    <div class="ps-grid" style="grid-template-columns:repeat(4,1fr);gap:18px;">
-      <div class="ps-card" style="text-align:right;">
-        <h3>1. 📷 לוכדים</h3>
-        <p>לוחצים על קיצור מקלדת גלובלי (<span class="mono">Ctrl+Shift+S/F/W/L</span>) ללכידת אזור, מסך מלא, חלון ספציפי, או עמוד גלילה ארוך — מכל מקום, גם כש-SnapCap במגש.</p>
-      </div>
-      <div class="ps-card" style="text-align:right;">
-        <h3>2. 🖊️ עורכים</h3>
-        <p>העורך הפנימי נפתח מיד: הדגשה, טשטוש, חיצים/צורות, טקסט, סימן מים, הסרת רקע — או ישר ל-OCR / הסתרת מידע רגיש.</p>
-      </div>
-      <div class="ps-card" style="text-align:right;">
-        <h3>3. 🛡️ מגנים</h3>
-        <p>זיהוי אוטומטי של מידע רגיש מוצא אימיילים, מספרי טלפון, מספרי כרטיס ומפתחות API ומטשטש אותם — מקומית, לפני שמייצאים או משתפים.</p>
-      </div>
-      <div class="ps-card" style="text-align:right;">
-        <h3>4. 📤 משתפים</h3>
-        <p>מעתיקים ללוח, שומרים בספרייה המקומית, או שולחים ל-Imgur/S3/כתובת מותאמת/Slack/Teams — רק אם הגדרתם את היעד הזה בעצמכם.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section id="why-he">
   <div class="wrap">
     <div class="section-head">
@@ -879,22 +850,48 @@
   </div>
 </section>
 
+<section id="how-he">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">איך זה עובד</p>
+      <h2>ארבעה שלבים, הכול על המחשב שלכם</h2>
+      <p>בלי חשבון, בלי קריאה לשרת בשביל התהליך הבסיסי — מלכידה לשיתוף תוך כמה שניות.</p>
+    </div>
+    <div class="ps-grid" style="grid-template-columns:repeat(4,1fr);gap:18px;">
+      <div class="ps-card" style="text-align:right;">
+        <h3>1. 📷 לוכדים</h3>
+        <p>לוחצים על קיצור מקלדת גלובלי (<span class="mono">Ctrl+Shift+S/F/W/L</span>) ללכידת אזור, מסך מלא, חלון ספציפי, או עמוד גלילה ארוך — מכל מקום, גם כש-SnapCap במגש.</p>
+      </div>
+      <div class="ps-card" style="text-align:right;">
+        <h3>2. 🖊️ עורכים</h3>
+        <p>העורך הפנימי נפתח מיד: הדגשה, טשטוש, חיצים/צורות, טקסט, סימן מים, הסרת רקע — או ישר ל-OCR / הסתרת מידע רגיש.</p>
+      </div>
+      <div class="ps-card" style="text-align:right;">
+        <h3>3. 🛡️ מגנים</h3>
+        <p>זיהוי אוטומטי של מידע רגיש מוצא אימיילים, מספרי טלפון, מספרי כרטיס ומפתחות API ומטשטש אותם — מקומית, לפני שמייצאים או משתפים.</p>
+      </div>
+      <div class="ps-card" style="text-align:right;">
+        <h3>4. 📤 משתפים</h3>
+        <p>מעתיקים ללוח, שומרים בספרייה המקומית, או שולחים ל-Imgur/S3/כתובת מותאמת/Slack/Teams — רק אם הגדרתם את היעד הזה בעצמכם.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="features-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">יכולות</p>
       <h2>מה יש בפנים</h2>
-      <p>שתי תוספות חדשות לגמרי בגרסה 1.4.0, ועוד כל מה ש-SnapCap כבר כיסה.</p>
+      <p>לכידה, עריכה, הסתרת מידע רגיש וחיפוש - הכול למטה פועל מקומית, אלא אם אתם מפעילים בעצמכם AI בענן.</p>
     </div>
     <div class="feat-grid">
-      <div class="feat new">
-        <span class="new-tag">חדש · 1.4.0</span>
+      <div class="feat">
         <span class="fi">📌</span>
         <h3>הצמדה למסך</h3>
         <p>הציפו את הצילום הנוכחי כחלון צף, תמיד-עליון, ללא מסגרת — גרירה להזזה, גלגלת להגדלה/הקטנה (0.2×–3×), קליק ימני או כפול לסגירה. שימושי להשוואת mock מול עמוד חי.</p>
       </div>
-      <div class="feat new">
-        <span class="new-tag">חדש · 1.4.0</span>
+      <div class="feat">
         <span class="fi">⚡</span>
         <h3>לכידת טקסט מהירה</h3>
         <p><span class="mono">Ctrl+Shift+T</span> — בוחרים אזור והטקסט שלו מזוהה (OCR) מקומית ומועתק ישר ללוח, בלי חלון עריכה, בלי קריאת ענן. מיועד ל"אני רק צריך את הטקסט, מהר".</p>
@@ -1002,6 +999,56 @@
   </div>
 </section>
 
+<section id="auto-updates-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">תמיד מעודכנים</p>
+      <h2>עדכונים אוטומטיים</h2>
+      <p>לא צריך לזכור לבדוק אם יש גרסה חדשה.</p>
+    </div>
+    <div class="privacy-card">
+      <div class="privacy-row">
+        <span class="pi">🔄</span>
+        <div><h4>SnapCap בודק לבד ב-GitHub אם יש גרסה חדשה</h4><p>כמה שניות אחרי ההפעלה, בדיקה שרצה ברקע (אף פעם לא ב-thread הראשי, אף פעם לא חוסמת את הממשק) פונה ל-API הציבורי של GitHub Releases עבור <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a> ומשווה מול הגרסה שרצה אצלכם.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">🔔</span>
+        <div><h4>גרסה חדשה מציגה התראת מגש — וזהו</h4><p>לוחצים על ההתראה כדי לפתוח את דף ה-release בדפדפן ולהוריד את המתקין החדש בעצמכם. שום דבר לא מתקין את עצמו אוטומטית, וכשל בבדיקה (בלי אינטרנט, GitHub לא זמין) אף פעם לא מציג שגיאה — הוא פשוט מנסה שוב בפעם הבאה.</p></div>
+      </div>
+      <div class="privacy-row">
+        <span class="pi">⚙️</span>
+        <div><h4>אופציונלי לגמרי, וגם ידני</h4><p>אפשר לכבות את זה בכל רגע בהגדרות ← מתקדם ("בדוק עדכונים אוטומטית"), או להריץ בדיקה בדרישה עם הכפתור "בדוק עדכונים עכשיו" ממש לידו.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">הורדה</p>
+      <h2>מקבלים את SnapCap ל-Windows</h2>
+      <p>קובץ התקנה אחד, שתי השפות מובנות בפנים. מדריך מלא + פתרון תקלות: <span class="mono">README.md</span>.</p>
+    </div>
+    <div class="dl-card">
+      <div class="dl-icon">⬇</div>
+      <div class="dl-info">
+        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> עבור Windows 10/11</h3>
+        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
+        <div class="facts">כ-140 MB · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
+      </div>
+      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">הורדת קובץ ההתקנה</a>
+    </div>
+    <ol class="install-steps">
+      <li>מריצים את <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
+      <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
+      <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
+      <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>
+    </ol>
+    <p class="install-note">Windows עשוי להציג אזהרת SmartScreen כי המתקין עדיין לא חתום דיגיטלית — לוחצים "More info" ← "Run anyway". זה צפוי לכלים עצמאיים קטנים ולא מעיד על שיבוש כלשהו. קוד המקור וההוצאות לאור נמצאים ב-GitHub: <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a>.</p>
+  </div>
+</section>
+
 <section id="versions-he">
   <div class="wrap">
     <div class="section-head">
@@ -1048,6 +1095,9 @@
           <li><b>שונה</b>: אשף ההתקנה ומסך הפתיחה משתמשים כעת בפלטת כחול-כהה משותפת במקום הטורקיז-כחול של SnapCap עצמה - האפליקציה הפעילה עצמה (מגש המערכת, הווידג'ט, הספרייה, העורך) לא השתנתה.</li>
         </ul>
       </div>
+<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">מוצגות 5 הגרסאות האחרונות. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">יומן השינויים המלא ב-GitHub</a>, או פותחים למטה.</p>
+      <details>
+        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">הצגת 14 גרסאות קודמות (v1.11.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סוגר את הפריטים שנשארו פתוחים מסבב הביקורת הקודם — טקסט אמיתי בעברית ובאנגלית בכל מקום, מיקום נכון לרישום ההסרה, ותמיכת High Contrast להגדרה הראשונית.</p>
@@ -1135,57 +1185,8 @@
         <div class="cl-head"><span class="cl-ver">v1.2.0</span><span class="cl-date">2026-09-15</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);">Rebrand: SnapAI Pro ← <b>SnapCap</b>, זהות טורקיז/כחול חדשה (<span class="mono">#00d9a3</span> / <span class="mono">#3b82f6</span>), תיקוני ניגודיות WCAG-AA בכל כפתורי ה-accent.</p>
       </div>
+      </details>
     </div>
-  </div>
-</section>
-
-<section id="auto-updates-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">תמיד מעודכנים</p>
-      <h2>עדכונים אוטומטיים</h2>
-      <p>לא צריך לזכור לבדוק אם יש גרסה חדשה.</p>
-    </div>
-    <div class="privacy-card">
-      <div class="privacy-row">
-        <span class="pi">🔄</span>
-        <div><h4>SnapCap בודק לבד ב-GitHub אם יש גרסה חדשה</h4><p>כמה שניות אחרי ההפעלה, בדיקה שרצה ברקע (אף פעם לא ב-thread הראשי, אף פעם לא חוסמת את הממשק) פונה ל-API הציבורי של GitHub Releases עבור <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a> ומשווה מול הגרסה שרצה אצלכם.</p></div>
-      </div>
-      <div class="privacy-row">
-        <span class="pi">🔔</span>
-        <div><h4>גרסה חדשה מציגה התראת מגש — וזהו</h4><p>לוחצים על ההתראה כדי לפתוח את דף ה-release בדפדפן ולהוריד את המתקין החדש בעצמכם. שום דבר לא מתקין את עצמו אוטומטית, וכשל בבדיקה (בלי אינטרנט, GitHub לא זמין) אף פעם לא מציג שגיאה — הוא פשוט מנסה שוב בפעם הבאה.</p></div>
-      </div>
-      <div class="privacy-row">
-        <span class="pi">⚙️</span>
-        <div><h4>אופציונלי לגמרי, וגם ידני</h4><p>אפשר לכבות את זה בכל רגע בהגדרות ← מתקדם ("בדוק עדכונים אוטומטית"), או להריץ בדיקה בדרישה עם הכפתור "בדוק עדכונים עכשיו" ממש לידו.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="install-he" style="background:var(--surface-alt); border-block:1px solid var(--border-soft);">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">הורדה</p>
-      <h2>מקבלים את SnapCap ל-Windows</h2>
-      <p>קובץ התקנה אחד, שתי השפות מובנות בפנים. מדריך מלא + פתרון תקלות: <span class="mono">README.md</span>.</p>
-    </div>
-    <div class="dl-card">
-      <div class="dl-icon">⬇</div>
-      <div class="dl-info">
-        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> עבור Windows 10/11</h3>
-        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
-        <div class="facts">כ-140 MB · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
-      </div>
-      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">הורדת קובץ ההתקנה</a>
-    </div>
-    <ol class="install-steps">
-      <li>מריצים את <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
-      <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
-      <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
-      <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>
-    </ol>
-    <p class="install-note">Windows עשוי להציג אזהרת SmartScreen כי המתקין עדיין לא חתום דיגיטלית — לוחצים "More info" ← "Run anyway". זה צפוי לכלים עצמאיים קטנים ולא מעיד על שיבוש כלשהו. קוד המקור וההוצאות לאור נמצאים ב-GitHub: <a href="https://github.com/ofirshudari1-ship-it/snapcap" target="_blank" rel="noopener">github.com/ofirshudari1-ship-it/snapcap</a>.</p>
   </div>
 </section>
 
