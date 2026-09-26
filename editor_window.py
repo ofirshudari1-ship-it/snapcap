@@ -1549,6 +1549,29 @@ class SettingsDialog(QDialog):
 
         l.addWidget(widget_box)
 
+        # ── GIF recording ─────────────────────────────────────────────────────
+        gif_box = QGroupBox(t("grp_gif", lang))
+        gl = QVBoxLayout(gif_box)
+
+        self._gif_fps_combo = QComboBox()
+        for fps in (5, 8, 10, 15):
+            self._gif_fps_combo.addItem(str(fps), fps)
+        idx = self._gif_fps_combo.findData(self._conf.get("gif_fps", 8))
+        if idx >= 0:
+            self._gif_fps_combo.setCurrentIndex(idx)
+        gl.addLayout(self._row(t("lbl_gif_fps", lang), self._gif_fps_combo))
+
+        self._gif_duration_combo = QComboBox()
+        for secs in (5, 10, 15, 30):
+            self._gif_duration_combo.addItem(t("capture_delay_fmt", lang, sec=secs), secs)
+        idx = self._gif_duration_combo.findData(self._conf.get("gif_max_duration_sec", 15))
+        if idx >= 0:
+            self._gif_duration_combo.setCurrentIndex(idx)
+        gl.addLayout(self._row(t("lbl_gif_duration", lang), self._gif_duration_combo))
+        gl.addWidget(self._hint(t("hint_gif", lang)))
+
+        l.addWidget(gif_box)
+
         l.addStretch()
         return w
 
@@ -1817,6 +1840,8 @@ class SettingsDialog(QDialog):
         self._conf["show_startup_notification"] = self._startup_notif_cb.isChecked()
         self._conf["auto_update"] = self._auto_update_cb.isChecked()
         self._conf["show_desktop_widget"] = self._show_widget_cb.isChecked()
+        self._conf["gif_fps"] = self._gif_fps_combo.currentData()
+        self._conf["gif_max_duration_sec"] = self._gif_duration_combo.currentData()
         self._conf["save_dir"] = self._save_dir_edit.text()
         self._conf["image_format"] = self._fmt_combo.currentText()
         self._conf["auto_copy"] = self._auto_copy_cb.isChecked()

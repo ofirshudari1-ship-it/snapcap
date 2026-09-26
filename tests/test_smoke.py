@@ -1573,5 +1573,173 @@ class TestExportDiagnostics(unittest.TestCase):
         self.assertTrue(any("֐" <= ch <= "׿" for ch in he_text))
 
 
+class TestGifRecorderConfig(unittest.TestCase):
+    """GIF recording (gif_recorder.py) — added 2026-09-26 after competitor
+    research showed ShareX ships region GIF capture as a core feature
+    while Greenshot has none. Pins the new config defaults and hotkey."""
+
+    def test_capture_gif_hotkey_is_registered(self):
+        import config as cfg
+        self.assertIn("capture_gif", cfg.DEFAULT_CONFIG["hotkeys"])
+        self.assertTrue(cfg.DEFAULT_CONFIG["hotkeys"]["capture_gif"])
+
+    def test_gif_fps_default(self):
+        import config as cfg
+        self.assertEqual(cfg.DEFAULT_CONFIG["gif_fps"], 8)
+
+    def test_gif_max_duration_default(self):
+        import config as cfg
+        self.assertEqual(cfg.DEFAULT_CONFIG["gif_max_duration_sec"], 15)
+
+    def test_old_config_without_gif_keys_gains_defaults(self):
+        """Simulates a config.json saved before this feature existed —
+        _merge() must backfill the new keys rather than KeyError later."""
+        import config as cfg
+        old_style = {k: v for k, v in cfg.DEFAULT_CONFIG.items() if k not in ("gif_fps", "gif_max_duration_sec")}
+        merged = cfg._merge(cfg.DEFAULT_CONFIG, old_style)
+        self.assertEqual(merged["gif_fps"], 8)
+        self.assertEqual(merged["gif_max_duration_sec"], 15)
+
+
+class TestGifRecorder(unittest.TestCase):
+    """Pure capture-loop and encoding logic, driven manually instead of via
+    a live QTimer — same technique as TestCaptureDelay's overlay._tick()."""
+
+    def test_recorder_stops_after_max_frames(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from PIL import Image
+        app = QApplication.instance() or QApplication(sys.argv)
+        import gif_recorder as gr
+
+        dummy = Image.new("RGB", (8, 8), "red")
+        with unittest.mock.patch.object(gr.ce, "capture_region", return_value=dummy):
+            rec = gr.GifRecorder((0, 0, 8, 8), fps=10, max_duration_sec=1)  # max_frames = 10
+            self.assertEqual(rec.max_frames, 10)
+            finished = []
+            rec.start(lambda frames, interval: finished.append((frames, interval)))
+            for _ in range(10):
+                rec._capture_frame()
+            self.assertEqual(len(finished), 1)
+            frames, interval = finished[0]
+            self.assertEqual(len(frames), 10)
+            self.assertEqual(interval, rec.interval_ms)
+            self.assertFalse(rec._timer.isActive())
+
+    def test_recorder_stop_is_idempotent_when_not_running(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import gif_recorder as gr
+
+        rec = gr.GifRecorder((0, 0, 4, 4), fps=8, max_duration_sec=15)
+        # Never started — stop() must be a no-op, not raise.
+        rec.stop()
+
+    def test_save_gif_writes_animated_file(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        import gif_recorder as gr
+
+        frames = [Image.new("RGB", (10, 10), c) for c in ("red", "blue", "green")]
+        with tempfile.TemporaryDirectory() as td:
+            path = str(Path(td) / "out.gif")
+            gr.save_gif(frames, 120, path)
+            self.assertTrue(Path(path).exists())
+            with Image.open(path) as img:
+                self.assertEqual(img.n_frames, 3)
+
+    def test_save_gif_raises_on_empty_frame_list(self):
+        import gif_recorder as gr
+        with self.assertRaises(ValueError):
+            gr.save_gif([], 100, "unused.gif")
+
+    def test_default_filename_matches_pattern(self):
+        import re
+        import gif_recorder as gr
+        name = gr.default_filename()
+        self.assertRegex(name, r"^SnapCap_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.gif$")
+
+    def test_fps_is_clamped_between_1_and_30(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        import gif_recorder as gr
+
+        rec = gr.GifRecorder((0, 0, 4, 4), fps=999, max_duration_sec=1)
+        self.assertEqual(rec.interval_ms, max(60, round(1000 / 30)))
+
+
+class TestColorPicker(unittest.TestCase):
+    """Color Picker (color_picker.py) — added 2026-09-26, a dedicated
+    screen-sampling tool like ShareX's, separate from the annotation
+    editor. Only the pure pixel-sampling math is tested here (no mouse
+    interaction, which needs a live display)."""
+
+    def test_sample_reads_exact_pixel_color(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtGui import QPixmap, QColor
+        from PyQt6.QtCore import QPoint
+        app = QApplication.instance() or QApplication(sys.argv)
+        import color_picker as cp
+
+        pxm = QPixmap(20, 20)
+        pxm.fill(QColor(10, 20, 30))
+        overlay = cp.ColorPickerOverlay(pxm)
+        try:
+            overlay._sample(QPoint(5, 5))
+            self.assertEqual(overlay._hex, "#0a141e")
+            self.assertEqual(overlay._rgb, (10, 20, 30))
+        finally:
+            overlay.close()
+
+    def test_sample_out_of_bounds_keeps_previous_color(self):
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtGui import QPixmap, QColor
+        from PyQt6.QtCore import QPoint
+        app = QApplication.instance() or QApplication(sys.argv)
+        import color_picker as cp
+
+        pxm = QPixmap(20, 20)
+        pxm.fill(QColor(1, 2, 3))
+        overlay = cp.ColorPickerOverlay(pxm)
+        try:
+            overlay._sample(QPoint(5, 5))
+            before = overlay._hex
+            overlay._sample(QPoint(9999, 9999))  # far outside the pixmap
+            self.assertEqual(overlay._hex, before)
+        finally:
+            overlay.close()
+
+    def test_color_picker_hotkey_is_registered(self):
+        import config as cfg
+        self.assertIn("capture_color_picker", cfg.DEFAULT_CONFIG["hotkeys"])
+        self.assertTrue(cfg.DEFAULT_CONFIG["hotkeys"]["capture_color_picker"])
+
+
+class TestGifAndColorPickerTranslations(unittest.TestCase):
+    """New tray/settings strings for both features must exist and differ
+    (i.e. actually be translated) in both languages — same pattern as
+    TestNewSettingsTranslations above."""
+
+    def test_new_keys_translated_both_languages(self):
+        from i18n import t
+        keys = [
+            "tray_capture_gif", "tray_color_picker",
+            "gif_stop_btn", "gif_recording_label", "gif_saved_msg", "gif_empty_msg",
+            "color_picker_hint", "color_picked_msg",
+            "grp_gif", "lbl_gif_fps", "lbl_gif_duration", "hint_gif",
+        ]
+        for key in keys:
+            en = t(key, "en")
+            he = t(key, "he")
+            self.assertNotEqual(en, key, f"{key} missing an English translation")
+            self.assertNotEqual(he, key, f"{key} missing a Hebrew translation")
+            self.assertNotEqual(en, he, f"{key} is identical in both languages")
+
+
 if __name__ == "__main__":
     unittest.main()

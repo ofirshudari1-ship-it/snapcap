@@ -56,6 +56,8 @@ DEFAULT_CONFIG = {
         "capture_scroll":    "ctrl+shift+l",
         "open_library":      "ctrl+shift+o",
         "capture_text_ocr":  "ctrl+shift+t",
+        "capture_gif":         "ctrl+shift+g",
+        "capture_color_picker": "ctrl+alt+c",
     },
     "save_dir":        str(Path.home() / "Pictures" / "SnapCap"),
     "auto_copy":       True,
@@ -111,6 +113,14 @@ DEFAULT_CONFIG = {
     # reopens in the same spot across restarts.
     "show_desktop_widget": False,  # opt-in - off by default, enable from Settings
     "widget_pos": None,
+    # 2026-09-26 "GIF recording" pass (competitor research: ShareX ships a
+    # region GIF recorder as a core feature; Greenshot has none). Frames are
+    # captured at gif_fps for at most gif_max_duration_sec, then encoded with
+    # Pillow — see gif_recorder.py. Kept short/region-only by design: a full
+    # video pipeline (audio, long recordings, MP4/H.264) is a much bigger
+    # lift than fits this pass — see CHANGELOG for that scoping call.
+    "gif_fps":               8,
+    "gif_max_duration_sec":  15,
 }
 
 

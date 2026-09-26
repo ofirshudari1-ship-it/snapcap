@@ -207,6 +207,8 @@ class _Bridge(QObject):
     trigger_scroll     = pyqtSignal()
     trigger_library    = pyqtSignal()
     trigger_text_ocr   = pyqtSignal()
+    trigger_gif        = pyqtSignal()
+    trigger_color_picker = pyqtSignal()
     show_update_notif  = pyqtSignal(str, str)
     update_launched    = pyqtSignal(str, str)
 
@@ -224,6 +226,7 @@ class SnapCapApp:
         self._editor_windows: list = []
         self._library_window = None
         self._widget_window = None
+        self._active_gif = None  # keeps the in-progress GifRecorder/overlay alive
 
         self._bridge.trigger_region.connect(self._capture_region)
         self._bridge.trigger_fullscreen.connect(self._capture_fullscreen)
@@ -231,6 +234,8 @@ class SnapCapApp:
         self._bridge.trigger_scroll.connect(self._capture_scroll)
         self._bridge.trigger_library.connect(self._open_library)
         self._bridge.trigger_text_ocr.connect(self._capture_text_ocr)
+        self._bridge.trigger_gif.connect(self._capture_gif)
+        self._bridge.trigger_color_picker.connect(self._capture_color_picker)
         self._bridge.show_update_notif.connect(self._notify_update)
         self._bridge.update_launched.connect(self._on_update_launched)
 
@@ -407,6 +412,8 @@ class SnapCapApp:
         _add(f"🪟  {t('tray_capture_window', lang)}",      self._bridge.trigger_window.emit,     hk.get("capture_window", ""))
         _add(f"📜  {t('tray_capture_scroll', lang)}",      self._bridge.trigger_scroll.emit,     hk.get("capture_scroll", ""))
         _add(f"📝  {t('tray_capture_text_ocr', lang)}",     self._bridge.trigger_text_ocr.emit,   hk.get("capture_text_ocr", ""))
+        _add(f"🎬  {t('tray_capture_gif', lang)}",          self._bridge.trigger_gif.emit,        hk.get("capture_gif", ""))
+        _add(f"🎨  {t('tray_color_picker', lang)}",         self._bridge.trigger_color_picker.emit, hk.get("capture_color_picker", ""))
         menu.addSeparator()
         _add(f"📚  {t('tray_library', lang)}",             self._bridge.trigger_library.emit,    hk.get("open_library", ""))
         # Checkable toggle for the desktop widget — before this, closing the
@@ -458,6 +465,8 @@ class SnapCapApp:
             _bind(hk.get("capture_scroll"),     self._bridge.trigger_scroll)
             _bind(hk.get("open_library"),       self._bridge.trigger_library)
             _bind(hk.get("capture_text_ocr"),   self._bridge.trigger_text_ocr)
+            _bind(hk.get("capture_gif"),        self._bridge.trigger_gif)
+            _bind(hk.get("capture_color_picker"), self._bridge.trigger_color_picker)
         except ImportError:
             pass
 
@@ -767,6 +776,113 @@ class SnapCapApp:
             self._tray_message(
                 t("app_name", lang), t("text_ocr_copied_msg", lang, count=len(text)),
                 QSystemTrayIcon.MessageIcon.Information, 2500,
+            )
+        except Exception as e:
+            sys.excepthook(type(e), e, e.__traceback__)
+
+    def _capture_color_picker(self):
+        """Quick action: a full-screen loupe (color_picker.pick_color) for
+        sampling any on-screen pixel's color — a dedicated ShareX-style
+        tool, separate from the editor's annotation canvas. Copies the
+        picked HEX value straight to the clipboard, no editor window."""
+        log.info("Color picker requested")
+        try:
+            from color_picker import pick_color
+            import pyperclip
+            self._widget_hidden_for_capture = self._hide_widget_for_capture()
+            try:
+                hex_color = pick_color()
+            finally:
+                self._restore_widget_after_capture()
+            if not hex_color:
+                log.info("Color picker cancelled by user")
+                return
+            pyperclip.copy(hex_color)
+            lang = current_language()
+            log.info("Color picker: copied %s", hex_color)
+            self._tray_message(
+                t("app_name", lang), t("color_picked_msg", lang, hex=hex_color.upper()),
+                QSystemTrayIcon.MessageIcon.Information, 2500,
+            )
+        except Exception as e:
+            self._restore_widget_after_capture()
+            sys.excepthook(type(e), e, e.__traceback__)
+
+    def _capture_gif(self):
+        """Region-based short GIF recording (see gif_recorder.py — Added
+        after competitor research showed ShareX ships this as a core
+        feature while Greenshot has none). Select a region, then a small
+        floating HUD with a Stop button + elapsed time shows while frames
+        are captured, up to Settings' configured max duration."""
+        log.info("GIF recording requested")
+        try:
+            from region_selector import select_region
+            self._widget_hidden_for_capture = self._hide_widget_for_capture()
+            result = select_region()
+            if not result:
+                log.info("GIF recording cancelled by user (no region)")
+                self._restore_widget_after_capture()
+                return
+            self._restore_widget_after_capture()
+            x, y, w, h = result
+
+            def _start():
+                from gif_recorder import GifRecorder, GifRecordingOverlay
+                conf = cfg.load()
+                fps = conf.get("gif_fps", 8)
+                max_dur = conf.get("gif_max_duration_sec", 15)
+                self._widget_hidden_for_capture = self._hide_widget_for_capture()
+
+                overlay = GifRecordingOverlay((x, y, w, h), max_dur)
+                recorder = GifRecorder((x, y, w, h), fps=fps, max_duration_sec=max_dur)
+                # Keep strong references alive for the whole recording — both
+                # objects are otherwise only reachable from this closure,
+                # which returns as soon as recording starts.
+                self._active_gif = (overlay, recorder)
+
+                def _finished(frames, interval_ms):
+                    overlay.stop()
+                    self._restore_widget_after_capture()
+                    self._active_gif = None
+                    self._on_gif_finished(frames, interval_ms)
+
+                overlay.stop_requested.connect(recorder.stop)
+                recorder.start(_finished)
+                overlay.start()
+
+            self._run_after_delay(_start)
+        except Exception as e:
+            self._restore_widget_after_capture()
+            sys.excepthook(type(e), e, e.__traceback__)
+
+    def _on_gif_finished(self, frames, interval_ms):
+        lang = current_language()
+        if not frames:
+            self._tray_message(
+                t("app_name", lang), t("gif_empty_msg", lang),
+                QSystemTrayIcon.MessageIcon.Information, 2500,
+            )
+            return
+        try:
+            from gif_recorder import save_gif, default_filename
+            conf = cfg.load()
+            save_dir = Path(conf.get("save_dir", str(Path.home() / "Pictures" / "SnapCap")))
+            save_dir.mkdir(parents=True, exist_ok=True)
+            path = save_dir / default_filename()
+            save_gif(frames, interval_ms, str(path))
+            if conf.get("capture_sound", True):
+                self._play_shutter_sound()
+            if conf.get("auto_copy"):
+                # Animated GIFs can't go on the Windows clipboard as pixel
+                # data (CF_DIB has no concept of frames) — copy the file
+                # path instead, same fallback share_manager.copy_to_clipboard
+                # uses when it can't put image bytes on the clipboard.
+                import pyperclip
+                pyperclip.copy(str(path))
+            log.info("GIF saved: %s (%d frames)", path, len(frames))
+            self._tray_message(
+                t("app_name", lang), t("gif_saved_msg", lang, filename=path.name),
+                QSystemTrayIcon.MessageIcon.Information, 3000,
             )
         except Exception as e:
             sys.excepthook(type(e), e, e.__traceback__)

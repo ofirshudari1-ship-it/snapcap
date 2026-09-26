@@ -258,7 +258,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge" data-gh-version="snapcap">v1.14.0</span>
+      <span class="ver-badge" data-gh-version="snapcap">v1.15.0</span>
     </div>
     <nav class="links">
       <a href="#why">Why SnapCap</a>
@@ -290,7 +290,7 @@
         <a class="btn primary" href="#install">⬇ Download for Windows</a>
         <a class="btn ghost" href="#features">See what it does ↓</a>
       </div>
-      <p class="hero-meta"><span data-gh-version="snapcap">v1.14.0</span> · Windows 10/11 · <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> · <span data-gh-size="snapcap">~140 MB</span></p>
+      <p class="hero-meta"><span data-gh-version="snapcap">v1.15.0</span> · Windows 10/11 · <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</span> · <span data-gh-size="snapcap">~140 MB</span></p>
       <div class="badge-row">
         <span class="mini-badge">🔒 Local OCR &amp; redaction</span>
         <span class="mini-badge">🌗 Auto dark/light</span>
@@ -539,14 +539,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> for Windows 10/11</h3>
-        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
+        <h3>SnapCap <span data-gh-version="snapcap">v1.15.0</span> for Windows 10/11</h3>
+        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</div>
         <div class="facts"><span data-gh-size="snapcap">≈140 MB</span> · installs to <span class="mono">C:\Program Files\SnapCap</span> (falls back to a per-user folder if you skip admin rights) · no account needed</div>
       </div>
-      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">Download installer</a>
+      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.15.0/SnapCap-Setup-1.15.0.exe">Download installer</a>
     </div>
     <ol class="install-steps">
-      <li>Run <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
+      <li>Run <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</span> and pick your language on the first screen (English/Hebrew).</li>
       <li>Follow the setup wizard — a desktop shortcut and tray auto-start are offered as optional tasks.</li>
       <li>SnapCap opens automatically and drops an icon in the system tray — that's where it lives from here on.</li>
       <li>Optional: open Settings to turn on cloud AI features and add your own Anthropic API key, if you want them.</li>
@@ -564,6 +564,15 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.15.0</span><span class="cl-date">2026-09-26</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Researched ShareX, Greenshot, and Snagit before picking what to build next. SnapCap already matched ShareX/Snagit on scrolling capture and pin-to-screen — the two real gaps were GIF recording and a dedicated color picker, both added now.</p>
+        <ul class="cl-list">
+          <li><b>Added</b> GIF recording: select a region, a small floating Stop button + timer records frames at a configurable rate (default 8 fps) for up to a configurable max length (default 15s, Settings → General), then saves one animated .gif.</li>
+          <li><b>Added</b> Color Picker: a magnified loupe follows your cursor anywhere on screen showing a live HEX/RGB readout — click to copy the color's HEX code to your clipboard.</li>
+          <li><b>Added</b> both as new tray menu items with their own configurable hotkeys (Ctrl+Shift+G for GIF, Ctrl+Alt+C for Color Picker).</li>
+        </ul>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.14.0</span><span class="cl-date">2026-09-25</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">A clarity pass on Settings: every option that wasn't obvious from its name now has a short line underneath explaining what it actually does. The first-run wizard's language step now starts pre-selected for your Windows language instead of always defaulting to English.</p>
         <ul class="cl-list">
@@ -594,6 +603,10 @@
           <li><b>Fixed</b>: the desktop widget defaulted to visible after a fresh install. It's off by default again; turn it on from Settings or the tray icon whenever you want it.</li>
         </ul>
       </div>
+
+<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">Showing the 5 most recent releases. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog on GitHub</a>, or expand below.</p>
+      <details>
+        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">Show 15 earlier releases (v1.12.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.12.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">A shared visual identity update: the installer wizard and splash screen now use the same color palette across every one of our Windows tools, instead of each tool's own colors.</p>
@@ -601,9 +614,6 @@
           <li><b>Changed</b>: the installer wizard and splash screen now use a shared dark-blue palette instead of SnapCap's own teal/blue — the running app itself (tray, widget, Library, Editor) is unchanged.</li>
         </ul>
       </div>
-<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">Showing the 5 most recent releases. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full changelog on GitHub</a>, or expand below.</p>
-      <details>
-        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">Show 14 earlier releases (v1.11.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">Closes the items the previous audit pass left open — real Hebrew/English text everywhere, a corrected uninstall registry location, and High Contrast support for first-run setup.</p>
@@ -753,7 +763,7 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span class="brand-word">SnapCap</span>
-      <span class="ver-badge" data-gh-version="snapcap">v1.14.0</span>
+      <span class="ver-badge" data-gh-version="snapcap">v1.15.0</span>
     </div>
     <nav class="links">
       <a href="#why-he">למה SnapCap</a>
@@ -784,7 +794,7 @@
         <a class="btn primary" href="#install-he">⬇ הורדה ל-Windows</a>
         <a class="btn ghost" href="#features-he">לראות מה זה עושה ↓</a>
       </div>
-      <p class="hero-meta"><span data-gh-version="snapcap">v1.14.0</span> · Windows 10/11 · <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> · <span data-gh-size="snapcap">כ-140 MB</span></p>
+      <p class="hero-meta"><span data-gh-version="snapcap">v1.15.0</span> · Windows 10/11 · <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</span> · <span data-gh-size="snapcap">כ-140 MB</span></p>
       <div class="badge-row">
         <span class="mini-badge">🔒 OCR והסתרה מקומיים</span>
         <span class="mini-badge">🌗 כהה/בהיר אוטומטי</span>
@@ -1033,14 +1043,14 @@
     <div class="dl-card">
       <div class="dl-icon">⬇</div>
       <div class="dl-info">
-        <h3>SnapCap <span data-gh-version="snapcap">v1.14.0</span> עבור Windows 10/11</h3>
-        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</div>
+        <h3>SnapCap <span data-gh-version="snapcap">v1.15.0</span> עבור Windows 10/11</h3>
+        <div class="path" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</div>
         <div class="facts"><span data-gh-size="snapcap">כ-140 MB</span> · מתקין ל-<span class="mono">C:\Program Files\SnapCap</span> (נופל לתיקיית משתמש אם מדלגים על הרשאות אדמין) · בלי צורך בחשבון</div>
       </div>
-      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.14.0/SnapCap-Setup-1.14.0.exe">הורדת קובץ ההתקנה</a>
+      <a class="btn primary" data-gh-download="snapcap" href="https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v1.15.0/SnapCap-Setup-1.15.0.exe">הורדת קובץ ההתקנה</a>
     </div>
     <ol class="install-steps">
-      <li>מריצים את <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.14.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
+      <li>מריצים את <span class="mono" data-gh-filename="snapcap">SnapCap-Setup-1.15.0.exe</span> ובוחרים שפה במסך הראשון (אנגלית/עברית).</li>
       <li>עוברים את אשף ההתקנה — קיצור דרך לשולחן העבודה והפעלה אוטומטית במגש מוצעים כמשימות אופציונליות.</li>
       <li>SnapCap נפתח אוטומטית ומניח אייקון במגש המערכת — משם הוא פועל מעכשיו.</li>
       <li>אופציונלי: פותחים הגדרות כדי להפעיל פיצ'רי AI בענן ולהוסיף מפתח Anthropic API משלכם, אם רוצים בהם.</li>
@@ -1058,6 +1068,15 @@
     </div>
     <div>
       <div class="cl-item current">
+        <div class="cl-head"><span class="cl-ver">v1.15.0</span><span class="cl-date">2026-09-26</span></div>
+        <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">מחקר על ShareX, Greenshot ו-Snagit לפני שבחרנו מה לבנות. SnapCap כבר תואם ל-ShareX/Snagit בצילום גלילה ובהצמדה למסך - שני החוסרים האמיתיים היו הקלטת GIF ובורר צבעים ייעודי, ושניהם נוספו כעת.</p>
+        <ul class="cl-list">
+          <li><b>נוסף</b> הקלטת GIF: בוחרים אזור, כפתור עצירה צף קטן וטיימר מקליטים פריימים בקצב הניתן להגדרה (ברירת מחדל 8 fps) למשך מקסימלי הניתן להגדרה (ברירת מחדל 15 שניות, בהגדרות ← כללי), ואז שומרים קובץ GIF מונפש אחד.</li>
+          <li><b>נוסף</b> בורר צבעים: זכוכית מגדלת שעוקבת אחרי הסמן בכל מקום על המסך ומציגה קריאת HEX/RGB חייה - קליק מעתיק את קוד ה-HEX של הצבע ללוח.</li>
+          <li><b>נוסף</b> שני הפריטים כאפשרויות חדשות בתפריט מגש המערכת, עם קיצורי מקלדת ניתנים להגדרה (Ctrl+Shift+G להקלטת GIF, Ctrl+Alt+C לבורר הצבעים).</li>
+        </ul>
+      </div>
+      <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.14.0</span><span class="cl-date">2026-09-25</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">מעבר על ההגדרות: לכל אפשרות שלא היתה ברורה משמה נוסף משפט קצר מתחתיה שמסביר מה היא בפועל עושה. שלב בחירת השפה בהגדרה הראשונית נבחר כעת מראש לפי שפת Windows שלך, במקום להתחיל תמיד באנגלית.</p>
         <ul class="cl-list">
@@ -1088,6 +1107,10 @@
           <li><b>תוקן</b>: הווידג'ט של שולחן העבודה הופיע כברירת מחדל אחרי התקנה חדשה. הוא כבוי כברירת מחדל שוב; אפשר להדליק אותו מההגדרות או מסמל מגש המערכת בכל רגע שרוצים.</li>
         </ul>
       </div>
+
+<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">מוצגות 5 הגרסאות האחרונות. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">יומן השינויים המלא ב-GitHub</a>, או פותחים למטה.</p>
+      <details>
+        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">הצגת 15 גרסאות קודמות (v1.12.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.12.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">עדכון זהות חזותית משותפת: אשף ההתקנה ומסך הפתיחה משתמשים כעת באותה פלטת צבעים בכל אחד מכלי ה-Windows שלנו, במקום בצבעים הנפרדים של כל כלי.</p>
@@ -1095,9 +1118,6 @@
           <li><b>שונה</b>: אשף ההתקנה ומסך הפתיחה משתמשים כעת בפלטת כחול-כהה משותפת במקום הטורקיז-כחול של SnapCap עצמה - האפליקציה הפעילה עצמה (מגש המערכת, הווידג'ט, הספרייה, העורך) לא השתנתה.</li>
         </ul>
       </div>
-<p style="font-size:13px;color:var(--ink-faint);margin:0 0 16px;">מוצגות 5 הגרסאות האחרונות. <a href="https://github.com/ofirshudari1-ship-it/snapcap/blob/main/CHANGELOG.md" target="_blank" rel="noopener">יומן השינויים המלא ב-GitHub</a>, או פותחים למטה.</p>
-      <details>
-        <summary style="cursor:pointer;color:var(--accent-text);font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:0.04em;margin:4px 0 20px;">הצגת 14 גרסאות קודמות (v1.11.0–v1.2.0)</summary>
       <div class="cl-item">
         <div class="cl-head"><span class="cl-ver">v1.11.0</span><span class="cl-date">2026-09-23</span></div>
         <p style="font-size:14.5px;color:var(--ink-soft);margin-bottom:8px;">סוגר את הפריטים שנשארו פתוחים מסבב הביקורת הקודם — טקסט אמיתי בעברית ובאנגלית בכל מקום, מיקום נכון לרישום ההסרה, ותמיכת High Contrast להגדרה הראשונית.</p>
