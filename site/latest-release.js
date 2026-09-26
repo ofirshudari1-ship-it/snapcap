@@ -17,6 +17,8 @@
  *                                      .exe asset download URL
  *   data-gh-filename="<repo>"      -> element's text becomes the .exe asset's
  *                                      file name, e.g. "OptiGuard-Setup-4.18.0.exe"
+ *   data-gh-size="<repo>"          -> element's text becomes the .exe asset's
+ *                                      human-readable size, e.g. "106.8 MB"
  *
  * Resilience: every HTML element carrying one of these attributes must already
  * contain sensible static fallback content (a plausible version string, a
@@ -51,6 +53,11 @@
     return null;
   }
 
+  function formatSize(bytes) {
+    if (!bytes || typeof bytes !== 'number') return '';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
   function applyRelease(repo, release) {
     var version = release && release.tag_name ? String(release.tag_name) : '';
     var versionBare = version.replace(/^v/i, '');
@@ -72,6 +79,12 @@
       document.querySelectorAll('[data-gh-filename="' + repo + '"]').forEach(function (el) {
         el.textContent = asset.name;
       });
+      var size = formatSize(asset.size);
+      if (size) {
+        document.querySelectorAll('[data-gh-size="' + repo + '"]').forEach(function (el) {
+          el.textContent = size;
+        });
+      }
     }
   }
 
@@ -91,13 +104,14 @@
 
   function collectRepos() {
     var repos = {};
-    var selector = '[data-gh-version],[data-gh-version-bare],[data-gh-download],[data-gh-filename]';
+    var selector = '[data-gh-version],[data-gh-version-bare],[data-gh-download],[data-gh-filename],[data-gh-size]';
     document.querySelectorAll(selector).forEach(function (el) {
       var repo =
         el.getAttribute('data-gh-version') ||
         el.getAttribute('data-gh-version-bare') ||
         el.getAttribute('data-gh-download') ||
-        el.getAttribute('data-gh-filename');
+        el.getAttribute('data-gh-filename') ||
+        el.getAttribute('data-gh-size');
       if (repo) repos[repo] = true;
     });
     return Object.keys(repos);
