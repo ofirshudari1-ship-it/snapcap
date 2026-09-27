@@ -580,11 +580,15 @@ class TestNewConfigDefaults(unittest.TestCase):
         import config as cfg
         self.assertTrue(cfg.DEFAULT_CONFIG["show_startup_notification"])
 
-    def test_auto_update_defaults_false(self):
-        """Opt-in, default OFF per the task: auto-update must never turn
-        itself on for an existing/upgraded config."""
+    def test_auto_update_defaults_true(self):
+        """2026-09-28: default flipped ON so a fresh install gets silent
+        background updates without any extra step - see config.py's
+        comment on this key for the portfolio-wide reasoning. An existing
+        user's already-saved config.json (with an explicit False) must
+        still never get silently flipped on by this default change - that
+        is covered separately by the merge-preserves-saved-values tests."""
         import config as cfg
-        self.assertFalse(cfg.DEFAULT_CONFIG["auto_update"])
+        self.assertTrue(cfg.DEFAULT_CONFIG["auto_update"])
 
 
 class TestSelfUpdateDownload(unittest.TestCase):

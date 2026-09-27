@@ -99,11 +99,13 @@ DEFAULT_CONFIG = {
     # Startup Apps settings instead of through SnapCap.
     "skip_splash_on_autostart": True,  # when launched via the Run-key/startup-folder entry (--autostart flag), skip the ~1-2s splash screen for a quieter boot
     "show_startup_notification": True, # the "Running in the system tray" tray balloon shown on every non-first launch — can be silenced for autostart
-    # 2026-09-21 self-update pass — opt-in, default OFF: when True, a detected
-    # GitHub release is downloaded and installed silently in the background
-    # instead of just showing the "update available" tray notification (see
-    # update_checker.perform_self_update / start_background_autoupdate).
-    "auto_update": False,
+    # 2026-09-21 self-update pass, default flipped ON 2026-09-28 to match
+    # Playnest/TapAct/SnapCap's portfolio-wide goal: a detected GitHub
+    # release is downloaded and installed silently in the background by
+    # default, never just a "here's a link, go download it yourself" tray
+    # notification (see update_checker.perform_self_update /
+    # start_background_autoupdate). Still a real opt-out in Settings.
+    "auto_update": True,
     # 2026-09-22 desktop widget pass — a small always-on-top floating panel
     # with the "captured this month" stat + one-click "Capture now" / "Open
     # Library". Default ON (opt-out, not opt-in) since it's a passive,
