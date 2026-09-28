@@ -4,6 +4,7 @@ Multi-page QDialog: language → welcome → hotkeys → AI setup → save locat
 Supports English and Hebrew (RTL) with a live language switch.
 """
 from __future__ import annotations
+import sys
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -11,12 +12,22 @@ from PyQt6.QtWidgets import (
     QLineEdit, QFileDialog, QStackedWidget, QWidget, QFrame,
     QCheckBox, QApplication, QButtonGroup, QRadioButton,
 )
-from PyQt6.QtGui import QFont, QColor, QPainter, QPixmap, QLinearGradient
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtCore import Qt
 
 import a11y
 import config as cfg
 from i18n import t, is_rtl, current_language, detect_system_language
+
+
+def _resource_root() -> Path:
+    """Same frozen/dev resolution pattern as splash_screen.py's
+    _resource_root() / config.py's _load_version_info: PyInstaller --onedir
+    extracts --add-data "assets;assets" under sys._MEIPASS, dev runs read
+    straight from the project root."""
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
 
 # ── Style constants ────────────────────────────────────────────────────────────
 # Brand palette (default). STANDARDS.md §20.2 — when a Windows Contrast Theme
@@ -212,24 +223,36 @@ class _WelcomePage(QWidget):
         v.setSpacing(10)
         v.setContentsMargins(40, 24, 40, 16)
 
-        icon_lbl = QLabel()
-        pxm = QPixmap(56, 56)
-        pxm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pxm)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        grad = QLinearGradient(0, 0, 56, 56)
-        grad.setColorAt(0, QColor("#00d9a3"))
-        grad.setColorAt(1, QColor("#3b82f6"))
-        p.setBrush(grad)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawEllipse(0, 0, 56, 56)
-        p.setPen(QColor("white"))
-        p.setFont(QFont("Arial", 24, QFont.Weight.Bold))
-        p.drawText(pxm.rect(), Qt.AlignmentFlag.AlignCenter, "S")
-        p.end()
-        icon_lbl.setPixmap(pxm)
-        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        v.addWidget(icon_lbl)
+        # Onboarding hero illustration (Bloom-generated, SnapCap brand teal/blue
+        # #00d9a3->#3b82f6, assets/onboarding-welcome.png — a camera-aperture
+        # + lock illustration that doubles as this page's brand mark, replacing
+        # the plain gradient-circle "S" badge this page used to draw here). The
+        # source art has a light background, so it sits in a white rounded card
+        # — the wizard's own background is dark (_BRAND_BG) and the image would
+        # otherwise show a harsh rectangular seam against it. Missing/corrupt
+        # asset degrades silently (nothing shown) rather than breaking the page.
+        illustration_path = _resource_root() / "assets" / "onboarding-welcome.png"
+        illustration_pxm = QPixmap(str(illustration_path))
+        if not illustration_pxm.isNull():
+            card = QFrame()
+            card.setStyleSheet(
+                "background: #ffffff; border-radius: 12px;"
+            )
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(8, 8, 8, 8)
+            illus_lbl = QLabel()
+            scaled = illustration_pxm.scaledToWidth(
+                200, Qt.TransformationMode.SmoothTransformation
+            )
+            illus_lbl.setPixmap(scaled)
+            illus_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            card_layout.addWidget(illus_lbl)
+            card_row = QHBoxLayout()
+            card_row.addStretch()
+            card_row.addWidget(card)
+            card_row.addStretch()
+            v.addLayout(card_row)
+            v.addSpacing(6)
 
         title = _h(t("welcome_title", lang), 22)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
