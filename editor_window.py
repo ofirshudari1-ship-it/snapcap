@@ -1539,11 +1539,11 @@ class SettingsDialog(QDialog):
         self._startup_notif_cb.setChecked(self._conf.get("show_startup_notification", True))
         sl.addWidget(self._startup_notif_cb)
 
-        # Opt-in, default OFF: silently download + install updates instead of
-        # just showing the "update available" tray notification. See
-        # update_checker.perform_self_update / start_background_autoupdate.
+        # Default ON: download in the background and install at a safe moment
+        # instead of just showing the "update available" tray notification.
+        # See update_checker.download_update / main.SnapCapApp._on_update_ready.
         self._auto_update_cb = QCheckBox(t("cb_auto_update", lang))
-        self._auto_update_cb.setChecked(self._conf.get("auto_update", False))
+        self._auto_update_cb.setChecked(self._conf.get("auto_update", True))
         sl.addWidget(self._auto_update_cb)
         sl.addWidget(self._hint(t("hint_auto_update", lang)))
 

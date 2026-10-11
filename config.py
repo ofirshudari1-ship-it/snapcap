@@ -103,9 +103,16 @@ DEFAULT_CONFIG = {
     # Playnest/TapAct/SnapCap's portfolio-wide goal: a detected GitHub
     # release is downloaded and installed silently in the background by
     # default, never just a "here's a link, go download it yourself" tray
-    # notification (see update_checker.perform_self_update /
-    # start_background_autoupdate). Still a real opt-out in Settings.
+    # notification (see update_checker.download_update /
+    # start_background_prepare). Still a real opt-out in Settings.
     "auto_update": True,
+    # Config schema version. 2 = one-time migration that turned auto_update
+    # ON for configs written while the default was still False (1.15.0 and
+    # older persisted that False into config.json, so flipping the default in
+    # 1.16.1 never reached existing users - the root cause of "SnapCap does
+    # not update by itself"). Applied once in load(); a later explicit
+    # opt-out in Settings sticks.
+    "settings_version": 2,
     # 2026-09-22 desktop widget pass — a small always-on-top floating panel
     # with the "captured this month" stat + one-click "Capture now" / "Open
     # Library". Default ON (opt-out, not opt-in) since it's a passive,
@@ -242,6 +249,13 @@ def _merge(defaults: dict, data: dict) -> dict:
     return out
 
 
+def _safe_int(v) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
 def load() -> dict:
     """Always returns a fresh, fully-populated dict — a deep copy, never
     sharing nested objects with DEFAULT_CONFIG (the old shallow
@@ -254,9 +268,18 @@ def load() -> dict:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
+                needs_migration = _safe_int(data.get("settings_version", 0)) < DEFAULT_CONFIG["settings_version"]
                 merged = _merge(DEFAULT_CONFIG, data)
+                if needs_migration:
+                    merged["auto_update"] = True
+                    merged["settings_version"] = DEFAULT_CONFIG["settings_version"]
                 _transform_secrets(merged, _decrypt)
                 _make_save_dir(merged)
+                if needs_migration:
+                    try:
+                        save(merged)
+                    except Exception:
+                        pass
                 return merged
         except Exception:
             pass

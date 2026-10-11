@@ -585,8 +585,10 @@ class TestNewConfigDefaults(unittest.TestCase):
         background updates without any extra step - see config.py's
         comment on this key for the portfolio-wide reasoning. An existing
         user's already-saved config.json (with an explicit False) must
-        still never get silently flipped on by this default change - that
-        is covered separately by the merge-preserves-saved-values tests."""
+        still never get silently flipped on by this default change - EXCEPT
+        for the one-time settings_version migration (2026-10-12), which
+        fixes configs that merely persisted the old False default; see
+        TestUpdaterStandard."""
         import config as cfg
         self.assertTrue(cfg.DEFAULT_CONFIG["auto_update"])
 
@@ -1887,6 +1889,167 @@ class TestInstallerLanguageHandoff(unittest.TestCase):
             Path.home = real_home
             cfg.CONFIG_DIR = real_config_dir
             cfg.CONFIG_FILE = real_config_file
+
+
+class TestUpdaterStandard(unittest.TestCase):
+    """2026-10-12 updater overhaul (OptiGuard standard): sha256 digest check,
+    UAC-aware launch, download-without-install, and the one-time config
+    migration that finally turned auto_update on for existing users."""
+
+    URL = "https://github.com/ofirshudari1-ship-it/snapcap/releases/download/v9.9.9/SnapCap-Setup-9.9.9.exe"
+
+    @staticmethod
+    def _resp(payload):
+        class _R:
+            headers = {"Content-Length": str(len(payload))}
+            def __init__(self):
+                self._buf = payload
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def read(self, n=-1):
+                chunk, self._buf = self._buf[:n], self._buf[n:]
+                return chunk
+        return _R()
+
+    def test_digest_is_parsed_from_release_asset(self):
+        import update_checker as uc
+        good = "a" * 64
+        asset = uc._find_installer_asset({"assets": [
+            {"name": "SnapCap-Setup-9.9.9.exe", "browser_download_url": "u", "size": 1,
+             "digest": "sha256:" + good}]})
+        self.assertEqual(asset["sha256"], good)
+        bad = uc._find_installer_asset({"assets": [
+            {"name": "SnapCap-Setup-9.9.9.exe", "browser_download_url": "u", "size": 1,
+             "digest": "sha256:xyz"}]})
+        self.assertEqual(bad["sha256"], "")
+
+    def test_matching_sha256_is_accepted(self):
+        import hashlib
+        import update_checker as uc
+        payload = b"MZ" + b"y" * 500
+        with unittest.mock.patch("urllib.request.urlopen", return_value=self._resp(payload)):
+            path = uc.download_installer(self.URL, expected_size=len(payload),
+                                         expected_sha256=hashlib.sha256(payload).hexdigest())
+        try:
+            self.assertIsNotNone(path)
+        finally:
+            if path:
+                path.unlink(missing_ok=True)
+
+    def test_wrong_sha256_is_rejected_and_file_removed(self):
+        import update_checker as uc
+        payload = b"MZ" + b"y" * 500
+        with unittest.mock.patch("urllib.request.urlopen", return_value=self._resp(payload)):
+            path = uc.download_installer(self.URL, expected_size=len(payload),
+                                         expected_sha256="0" * 64)
+        self.assertIsNone(path)
+
+    def test_launch_falls_back_to_shell_execute_on_elevation_error(self):
+        """The installer is requireAdministrator: a plain Popen from the
+        non-elevated app raises WinError 740 - this was why the silent
+        update never ran. The launcher must hand it to ShellExecute (UAC)."""
+        import tempfile
+        import update_checker as uc
+        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
+            fake = Path(f.name)
+        err = OSError(740, "The requested operation requires elevation")
+        err.winerror = 740
+        try:
+            with unittest.mock.patch("subprocess.Popen", side_effect=err),                  unittest.mock.patch.object(uc, "_shell_execute_elevated", return_value=True) as se:
+                ok = uc.launch_silent_install(fake)
+            self.assertTrue(ok)
+            self.assertIn("--silent", se.call_args[0][1])
+            self.assertIn("--relaunch", se.call_args[0][1])
+        finally:
+            fake.unlink(missing_ok=True)
+
+    def test_download_update_stages_without_launching_and_reuses_file(self):
+        import tempfile
+        import update_checker as uc
+        with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
+            f.write(b"MZ" + b"z" * 98)
+            staged = Path(f.name)
+        info = {"version": "9.9.9", "url": "https://x/tag", "asset_url": self.URL, "asset_size": 100}
+        try:
+            uc._STAGED.clear()
+            with unittest.mock.patch.object(uc, "check_for_update", return_value=info),                  unittest.mock.patch.object(uc, "download_installer", return_value=staged) as dl,                  unittest.mock.patch.object(uc, "launch_silent_install") as launch:
+                first = uc.download_update("1.0.0")
+                second = uc.download_update("1.0.0")
+            self.assertEqual(first["status"], "ready")
+            self.assertEqual(second["installer_path"], str(staged))
+            self.assertEqual(dl.call_count, 1)          # second call reused the staged file
+            launch.assert_not_called()
+        finally:
+            uc._STAGED.clear()
+            staged.unlink(missing_ok=True)
+
+    def test_legacy_config_with_auto_update_false_is_migrated_once(self):
+        import json
+        import config as cfg
+        cfg.CONFIG_FILE.write_text(json.dumps({"auto_update": False, "language": "he"}), encoding="utf-8")
+        loaded = cfg.load()
+        self.assertTrue(loaded["auto_update"])
+        self.assertEqual(loaded["language"], "he")
+        self.assertEqual(json.loads(cfg.CONFIG_FILE.read_text(encoding="utf-8"))["settings_version"], 2)
+        # An explicit opt-out AFTER the migration must stick.
+        loaded["auto_update"] = False
+        cfg.save(loaded)
+        self.assertFalse(cfg.load()["auto_update"])
+        cfg.CONFIG_FILE.unlink(missing_ok=True)
+
+class TestAutoUpdateScheduling(unittest.TestCase):
+    """main.SnapCapApp: a staged update installs only at a safe moment."""
+
+    def _snap(self, idle):
+        import main as m
+        snap = m.SnapCapApp.__new__(m.SnapCapApp)
+        snap._pending_update = ("9.9.9", "C:/temp/SnapCap-Setup-9.9.9.exe")
+        snap._update_declined = set()
+        snap._user_quit = False
+        snap._pending_timer = unittest.mock.Mock()
+        snap._is_idle_for_update = lambda: idle
+        snap._quit_for_update = unittest.mock.Mock()
+        snap._notify_update = unittest.mock.Mock()
+        snap.app = unittest.mock.Mock()
+        snap.app.isSavingSession.return_value = False
+        return m, snap
+
+    def test_busy_editor_defers_and_retries(self):
+        m, snap = self._snap(idle=False)
+        with unittest.mock.patch("update_checker.launch_silent_install") as launch:
+            m.SnapCapApp._try_install_pending(snap)
+        launch.assert_not_called()
+        snap._pending_timer.start.assert_called_once()
+        self.assertIsNotNone(snap._pending_update)
+
+    def test_idle_launches_installer_and_quits(self):
+        m, snap = self._snap(idle=True)
+        with unittest.mock.patch("update_checker.launch_silent_install", return_value=True) as launch:
+            m.SnapCapApp._try_install_pending(snap)
+        launch.assert_called_once()
+        snap._quit_for_update.assert_called_once()
+
+    def test_declined_uac_falls_back_to_manual_notice_once(self):
+        m, snap = self._snap(idle=True)
+        with unittest.mock.patch("update_checker.launch_silent_install", return_value=False):
+            m.SnapCapApp._try_install_pending(snap)
+        snap._quit_for_update.assert_not_called()
+        snap._notify_update.assert_called_once()
+        self.assertIn("9.9.9", snap._update_declined)
+        m.SnapCapApp._on_update_ready(snap, "9.9.9", "x")   # same version is not retried this session
+        self.assertEqual(snap._notify_update.call_count, 1)
+
+    def test_on_exit_install_only_after_explicit_tray_quit(self):
+        m, snap = self._snap(idle=True)
+        with unittest.mock.patch("update_checker.launch_silent_install", return_value=True) as launch:
+            m.SnapCapApp._install_pending_on_exit(snap)        # e.g. logoff: not a user quit
+            launch.assert_not_called()
+            snap._user_quit = True
+            m.SnapCapApp._install_pending_on_exit(snap)
+        launch.assert_called_once()
+        self.assertFalse(launch.call_args.kwargs.get("relaunch", True))
 
 
 if __name__ == "__main__":

@@ -30,9 +30,12 @@ from logger import get_logger
 APP_VERSION = cfg.APP_VERSION
 log = get_logger("main")
 
-# Re-check GitHub for a new release every 24h while running (see
-# SnapCapApp._periodic_update_check).
-_UPDATE_RECHECK_MS = 24 * 60 * 60 * 1000
+# Re-check GitHub for a new release every 6h while running (see
+# SnapCapApp._periodic_update_check) - same cadence as OptiGuard.
+_UPDATE_RECHECK_MS = 6 * 60 * 60 * 1000
+# While a verified installer is staged but an editor/GIF capture is open,
+# retry the "is it safe to install now?" test this often.
+_PENDING_RETRY_MS = 2 * 60 * 1000
 
 
 # ── Crash safety net ──────────────────────────────────────────────────────────
@@ -211,6 +214,7 @@ class _Bridge(QObject):
     trigger_color_picker = pyqtSignal()
     show_update_notif  = pyqtSignal(str, str)
     update_launched    = pyqtSignal(str, str)
+    update_ready       = pyqtSignal(str, str)
 
 
 # ── Main application controller ────────────────────────────────────────────────
@@ -238,6 +242,14 @@ class SnapCapApp:
         self._bridge.trigger_color_picker.connect(self._capture_color_picker)
         self._bridge.show_update_notif.connect(self._notify_update)
         self._bridge.update_launched.connect(self._on_update_launched)
+        self._bridge.update_ready.connect(self._on_update_ready)
+        self._pending_update = None      # (version, installer_path) staged + verified
+        self._update_declined = set()    # versions whose install failed/was declined this session
+        self._user_quit = False          # True only for an explicit tray "Quit"
+        self._pending_timer = QTimer()
+        self._pending_timer.setSingleShot(True)
+        self._pending_timer.timeout.connect(self._try_install_pending)
+        self.app.aboutToQuit.connect(self._install_pending_on_exit)
 
         self._setup_tray()
         self._register_hotkeys()
@@ -248,22 +260,13 @@ class SnapCapApp:
             QTimer.singleShot(400, self._run_onboarding)
 
         # ── Background update check (GitHub Releases, a few seconds after launch) ──
-        # Opt-in auto-update (Settings -> "Automatically download and install
-        # updates") downloads + silently installs and only falls back to the
-        # notify-only path if something about that fails; default (off)
-        # behavior is unchanged from before.
+        # Auto-update (Settings -> "Automatically download and install
+        # updates", default ON): the verified installer is downloaded in the
+        # background and installed at a safe moment (no editor/GIF open) or
+        # when the user quits; it falls back to the notify-only balloon if
+        # anything fails. With the setting off, only the balloon is shown.
         if self._conf.get("check_updates", True):
-            if self._conf.get("auto_update", False):
-                update_checker.start_background_autoupdate(
-                    APP_VERSION,
-                    self._bridge.update_launched.emit,
-                    self._bridge.show_update_notif.emit,
-                    delay=5.0,
-                )
-            else:
-                update_checker.start_background_check(
-                    APP_VERSION, self._bridge.show_update_notif.emit, delay=5.0,
-                )
+            self._start_update_check(delay=5.0)
 
         self._update_timer = QTimer()
         self._update_timer.timeout.connect(self._periodic_update_check)
@@ -317,9 +320,86 @@ class SnapCapApp:
         setting rather than the one at launch."""
         if not cfg.load().get("check_updates", True):
             return
-        update_checker.start_background_check(
-            APP_VERSION, self._bridge.show_update_notif.emit, delay=0.0,
-        )
+        if self._pending_update:
+            return  # one is already staged; nothing more to fetch
+        self._start_update_check(delay=0.0)
+
+    def _start_update_check(self, delay: float):
+        """Honors the *current* auto_update setting each time."""
+        auto = bool(cfg.load().get("auto_update", True))
+        log.info("Update check scheduled (auto_update=%s, delay=%ss)", auto, delay)
+        if auto:
+            update_checker.start_background_prepare(
+                APP_VERSION,
+                self._bridge.update_ready.emit,
+                self._bridge.show_update_notif.emit,
+                delay=delay,
+            )
+        else:
+            update_checker.start_background_check(
+                APP_VERSION, self._bridge.show_update_notif.emit, delay=delay,
+            )
+
+    def _is_idle_for_update(self) -> bool:
+        """Safe to quit for an install: no visible editor, no open library,
+        no GIF recording in progress."""
+        try:
+            if self._active_gif is not None:
+                return False
+            if any(w.isVisible() for w in list(self._editor_windows)):
+                return False
+            lib = self._library_window
+            if lib is not None and lib.isVisible():
+                return False
+        except Exception:
+            return False
+        return True
+
+    def _on_update_ready(self, version: str, installer_path: str):
+        if version in self._update_declined:
+            return
+        log.info("Auto-update: v%s downloaded and verified (%s)", version, installer_path)
+        self._pending_update = (version, installer_path)
+        self._try_install_pending()
+
+    def _try_install_pending(self):
+        pending = self._pending_update
+        if not pending:
+            return
+        version, path = pending
+        if not self._is_idle_for_update():
+            log.info("Auto-update: v%s installation deferred - an editor/capture is open", version)
+            self._pending_timer.start(_PENDING_RETRY_MS)
+            return
+        self._pending_update = None
+        # Windows shows one UAC prompt here (per-machine install).
+        if update_checker.launch_silent_install(path):
+            log.info("Auto-update: installer for v%s launched - shutting down", version)
+            self._quit_for_update()
+        else:
+            self._update_declined.add(version)
+            log.warning("Auto-update: installer for v%s did not start (UAC declined?) - showing manual notice", version)
+            self._notify_update(version, update_checker.RELEASES_PAGE_URL)
+
+    def _install_pending_on_exit(self):
+        """A staged update the user never hit a safe moment for is installed
+        when they explicitly quit from the tray (never on logoff/shutdown)."""
+        pending = self._pending_update
+        if not pending or not self._user_quit:
+            return
+        self._pending_update = None
+        try:
+            if self.app.isSavingSession():
+                return
+        except Exception:
+            pass
+        version, path = pending
+        ok = update_checker.launch_silent_install(path, relaunch=False)
+        log.info("Auto-update: on-exit install of v%s %s", version, "launched" if ok else "not started")
+
+    def _quit_from_tray(self):
+        self._user_quit = True
+        self.app.quit()
 
     def _on_update_launched(self, version: str, installer_path: str):
         # The silent installer has already been launched (detached) and is
@@ -426,7 +506,7 @@ class SnapCapApp:
         _add(f"⚙️  {t('tray_settings', lang)}",            self._open_settings)
         _add(f"ℹ️  {t('tray_about', lang)}",                self._show_about)
         menu.addSeparator()
-        _add(f"✕  {t('tray_quit', lang)}",                  self.app.quit)
+        _add(f"✕  {t('tray_quit', lang)}",                  self._quit_from_tray)
 
         self.tray.setContextMenu(menu)
         # QSystemTrayIcon.setContextMenu doesn't take ownership — keep a

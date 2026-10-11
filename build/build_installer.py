@@ -137,6 +137,38 @@ def _write_registry_entry(install_dir: Path, log=lambda m: None):
         winreg.CloseKey(key)
     except Exception as e:
         log(f"  Registry warning: {e}")
+        return
+    _remove_stale_hkcu_entry(log)
+
+
+def _remove_stale_hkcu_entry(log=lambda m: None):
+    """Builds before 1.12 wrote the Add/Remove Programs entry to HKCU. The
+    HKLM entry written above is the real one (same key name = same AppId),
+    so any HKCU leftover is a duplicate "SnapCap" line in Windows Settings
+    (the owner's PC showed 1.15.0 and a stale 1.6.0 side by side). Removed
+    only after the HKLM write succeeded."""
+    try:
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, REG_KEY)
+        log("  Removed stale per-user uninstall entry left by an older build")
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        log(f"  Stale HKCU entry cleanup warning: {e}")
+
+
+def _clean_old_payload(dest: Path, log=lambda m: None):
+    """Deletes the previous build's _internal/ folder (PyInstaller runtime +
+    libs) before the new one is copied over it. copytree(dirs_exist_ok) only
+    adds/overwrites, so DLLs/modules dropped between versions piled up for
+    ever. Touches ONLY <dest>/_internal and only when <dest>/SnapCap.exe
+    exists (= a real SnapCap install); user data lives in ~/.snapcap and is
+    never touched."""
+    try:
+        if (dest / "SnapCap.exe").exists() and (dest / "_internal").is_dir():
+            shutil.rmtree(dest / "_internal", ignore_errors=True)
+            log("  Cleaned previous _internal/ before copying the new build")
+    except Exception as e:
+        log(f"  Payload cleanup warning: {e}")
 
 
 def _write_language_config(lang_code: str, log=lambda m: None):
@@ -201,6 +233,20 @@ def _wait_for_app_exit(timeout_sec: float = 15.0) -> bool:
     return not _is_app_running()
 
 
+def _stop_running_app(log=lambda m: None) -> bool:
+    """Last resort for an unattended update when SnapCap.exe is still alive
+    after the grace period: terminate it so its files can be replaced
+    (updates must never silently fail on a locked exe). SnapCap keeps all
+    state on disk, so a hard stop loses nothing but an unsaved editor."""
+    try:
+        subprocess.run(["taskkill", "/IM", "SnapCap.exe", "/F"],
+                       capture_output=True, timeout=10,
+                       creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        log(f"taskkill warning: {e}")
+    return _wait_for_app_exit(5.0)
+
+
 def run_silent_install(argv) -> int:
     """
     Unattended install, launched as `SnapCap_Setup.exe --silent [--relaunch]`
@@ -230,15 +276,17 @@ def run_silent_install(argv) -> int:
         try:
             log_path = Path(os.environ.get("TEMP", str(Path.home()))) / "SnapCap_silent_install.log"
             with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"\\n--- silent install {time.strftime('%Y-%m-%d %H:%M:%S')} (exit {code}) ---\\n")
-                f.write("\\n".join(log_lines) + "\\n")
+                f.write(f"\n--- silent install {time.strftime('%Y-%m-%d %H:%M:%S')} (exit {code}) ---\n")
+                f.write("\n".join(log_lines) + "\n")
         except Exception:
             pass
         return code
 
     try:
         if not _wait_for_app_exit():
-            _log("WARN: SnapCap.exe still appeared to be running after waiting — proceeding anyway")
+            _log("SnapCap.exe still running after the grace period - stopping it")
+            if not _stop_running_app(_log):
+                _log("WARN: SnapCap.exe could not be stopped - proceeding anyway")
 
         existing_dir = _read_existing_install_dir()
         is_update = existing_dir is not None
@@ -254,6 +302,7 @@ def run_silent_install(argv) -> int:
         _log(f"Installing to {dest} (update={is_update})")
         try:
             dest.mkdir(parents=True, exist_ok=True)
+            _clean_old_payload(dest, _log)
             shutil.copytree(src, dest, dirs_exist_ok=True)
         except OSError as e:
             # Disk full, permission denied (not elevated / UAC declined),
@@ -289,14 +338,22 @@ def run_silent_install(argv) -> int:
         _log("Registry entry written")
 
         if "--relaunch" in argv:
+            # This process is elevated (UAC). Starting SnapCap.exe directly
+            # would run the whole app as administrator; going through
+            # explorer.exe hands the launch to the user's normal shell token.
             try:
                 subprocess.Popen(
-                    [str(dest / "SnapCap.exe")],
+                    ["explorer.exe", str(dest / "SnapCap.exe")],
                     creationflags=subprocess.DETACHED_PROCESS,
                 )
-                _log("Relaunched SnapCap.exe")
+                _log("Relaunched SnapCap.exe (via explorer, not elevated)")
             except Exception as e:
-                _log(f"Relaunch failed (non-fatal): {e}")
+                try:
+                    subprocess.Popen([str(dest / "SnapCap.exe")],
+                                     creationflags=subprocess.DETACHED_PROCESS)
+                    _log(f"Relaunched SnapCap.exe directly ({e})")
+                except Exception as e2:
+                    _log(f"Relaunch failed (non-fatal): {e2}")
 
         _log("Silent install complete")
         return _finish(0)
@@ -832,6 +889,7 @@ class InstallWorker(QThread):
             self.status.emit("Copying SnapCap files…")
             src = _find_app_payload_dir()
             if src and src.exists():
+                _clean_old_payload(dest, self.log.emit)
                 shutil.copytree(src, dest, dirs_exist_ok=True)
                 self.log.emit(f"✓ Copied {src.name}/ ({sum(1 for _ in src.rglob('*'))} files)")
             else:
